@@ -1,0 +1,27 @@
+{
+  "name": "searchfix-ai",
+  "version": "1.0.0",
+  "description": "SearchFix AI - Issue Classification & Document Routing System (Phase 1)",
+  "type": "module",
+  "main": "src/server.js",
+  "scripts": {
+    "start": "node src/server.js",
+    "dev": "node --watch src/server.js",
+    "test": "node tests/searchfix.test.js"
+  },
+  "dependencies": {
+    "@google/genai": "*",
+    "cors": "^2.8.5",
+    "dotenv": "^16.4.5",
+    "express": "^4.19.2"
+  },
+  "keywords": [
+    "searchfix",
+    "gemini",
+    "express",
+    "classification",
+    "ai"
+  ],
+  "author": "",
+  "license": "ISC"
+}
