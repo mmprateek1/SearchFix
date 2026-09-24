@@ -1,0 +1,25 @@
+/**
+ * Phase 2 Issue Taxonomy Configuration.
+ * Centralized list of supported issue categories for SearchFix AI.
+ */
+
+export const ISSUE_TYPES = [
+    "MISSING_DEED",
+    "CHAIN_BREAK",
+    "PARCEL_MISMATCH",
+    "LEGAL_DESCRIPTION_MISMATCH",
+    "TYPING_ERROR",
+    "TAX_DISCREPANCY",
+    "LIEN_DISCREPANCY",
+    "COURT_DISCREPANCY",
+    "BANKRUPTCY_DISCREPANCY",
+    "VESTING_DISCREPANCY",
+    "DEED_DISCREPANCY",
+    "NAME_SEARCH_MISSING",
+    "SEARCH_DEPTH",
+    "MISSING_DOCUMENT",
+    "MORTGAGE_DISCREPANCY",
+    "PROPERTY_IDENTIFICATION",
+    "LEASEHOLD_DISCREPANCY",
+    "OTHER"
+];
