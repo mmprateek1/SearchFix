@@ -17,6 +17,9 @@ export class DecisionEngine {
                 reason: `Required supporting document(s) [${issue.requiredDocuments.join(", ")}] were not provided for analysis.`
             };
         }
+        if (evidence.some(item => item.field === "documentAnalysisStatus" && item.value === "Processing Error")) {
+            return { decision: "REVIEW_REQUIRED", reason: "The supplied evidence could not be processed. Retry or review the source documents manually; no claim has been verified." };
+        }
 
         const systemPrompt = getDecisionSystemPrompt();
         const userPrompt = getDecisionUserPrompt(issue.issueType, issue.claim, issue.requiredDocuments, evidence);

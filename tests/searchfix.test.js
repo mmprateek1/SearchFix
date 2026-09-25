@@ -30,6 +30,7 @@ function runStep1RoutingUnitTests() {
     }
 
     console.log(`Step 1 Routing Tests: ${passed}/${total} passed.\n`);
+    if (passed !== total) process.exitCode = 1;
 }
 
 function runStep2DecisionEngineUnitTests() {
@@ -49,6 +50,7 @@ function runStep2DecisionEngineUnitTests() {
     }
 
     console.log(`Step 2 Decision Engine Tests: ${passed}/${total} passed.\n`);
+    if (passed !== total) process.exitCode = 1;
 }
 
 async function runRegressionDataTests() {
@@ -76,6 +78,7 @@ async function runRegressionDataTests() {
     }
 
     console.log(`Regression Dataset Tests: ${passed}/${sampleOrders.length} passed.\n`);
+    if (passed !== sampleOrders.length) process.exitCode = 1;
 }
 
 async function main() {

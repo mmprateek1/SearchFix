@@ -32,8 +32,9 @@ app.use("/api/searchfix", searchfixRoutes);
 // Global Error Handler Middleware
 app.use((err, req, res, next) => {
     console.error("[Server Error]", err.stack || err);
-    res.status(500).json({
-        error: "SearchFix analysis failed."
+    const status = err.code?.startsWith("LIMIT_") ? 413 : (err.status === 400 ? 400 : 500);
+    res.status(status).json({
+        error: status === 413 ? "Upload limit exceeded: at most 6 PDFs, 20 MB per file." : status === 400 ? "Invalid request body." : "SearchFix analysis failed."
     });
 });
 

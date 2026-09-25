@@ -67,6 +67,7 @@ async function runDecisionEngineTests() {
     }
 
     console.log(`Decision Engine Tests Complete: ${passed}/${total} passed.\n`);
+    if (passed !== total) process.exitCode = 1;
 }
 
 runDecisionEngineTests();

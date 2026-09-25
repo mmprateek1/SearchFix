@@ -7,6 +7,8 @@ import { evidenceService } from "../services/evidence.service.js";
 import { decisionEngine } from "../services/decision.service.js";
 import { SearchFixStep1ResultSchema, SearchFixStep2ResultSchema } from "../schemas/result.schema.js";
 import { geminiService } from "../services/gemini.service.js";
+import { OrderInputSchema } from "../schemas/comment.schema.js";
+import { DOCUMENT_TYPES } from "../config/documentMappings.js";
 
 /**
  * STEP 1 ENDPOINT CONTROLLER:
@@ -27,6 +29,9 @@ export async function analyzeCommentsController(req, res) {
         }
 
         const cleanOrderNumber = orderNumber.trim();
+        if (!OrderInputSchema.safeParse({orderNumber: cleanOrderNumber, comments}).success) {
+            return res.status(400).json({error: "Each comment must contain non-empty text and valid string metadata."});
+        }
         console.log(`[SearchFix Step 1] Analyzing comments for Order ${cleanOrderNumber} (${comments.length} comments)`);
 
         // 1. Comment Selection & Timeline Traversal
@@ -122,7 +127,8 @@ export async function analyzeCommentsController(req, res) {
  * and returns ACCEPTED, DISPUTED, or REVIEW_REQUIRED decisions.
  */
 export async function analyzeDocumentsController(req, res) {
-    const uploadedLocalPaths = [];
+    // Track files before validation so even rejected multipart requests are cleaned up.
+    const uploadedLocalPaths = (req.files || []).map(file => file.path);
 
     try {
         let bodyData = req.body;
@@ -135,9 +141,14 @@ export async function analyzeDocumentsController(req, res) {
             }
         }
 
+        if (!bodyData || typeof bodyData !== "object" || Array.isArray(bodyData)) {
+            return res.status(400).json({error: "orderData must be a JSON object."});
+        }
+
         const orderNumber = bodyData.orderNumber || req.body.orderNumber;
         const comments = bodyData.comments || req.body.comments;
         const analysisId = bodyData.analysisId || req.body.analysisId;
+        const taText = bodyData.taText || "";
 
         if (!orderNumber || typeof orderNumber !== "string" || orderNumber.trim() === "") {
             return res.status(400).json({ error: "orderNumber is required." });
@@ -147,10 +158,17 @@ export async function analyzeDocumentsController(req, res) {
             return res.status(400).json({ error: "comments array must contain at least one comment." });
         }
 
+        if (!OrderInputSchema.safeParse({orderNumber, comments}).success || typeof taText !== "string" || taText.length > 120000) {
+            return res.status(400).json({error: "Invalid comment data or TA text (maximum 120,000 characters)."});
+        }
+
         const uploadedFiles = [];
         if (req.files && Array.isArray(req.files)) {
             for (const file of req.files) {
-                uploadedLocalPaths.push(file.path);
+                const header = Buffer.alloc(5);
+                const fd = fs.openSync(file.path, "r");
+                try { fs.readSync(fd, header, 0, 5, 0); } finally { fs.closeSync(fd); }
+                if (header.toString() !== "%PDF-") return res.status(400).json({error: "Only PDF attachments are supported."});
 
                 let fileType = "SEARCH_PACKAGE";
                 if (req.body[`fileType_${file.fieldname}`]) {
@@ -170,6 +188,7 @@ export async function analyzeDocumentsController(req, res) {
                 } else if (file.originalname.toUpperCase().includes("DOT")) {
                     fileType = "DOT";
                 }
+                if (!DOCUMENT_TYPES.includes(fileType)) return res.status(400).json({error:"Invalid attachment document type."});
 
                 uploadedFiles.push({
                     fileName: file.originalname,
@@ -178,6 +197,7 @@ export async function analyzeDocumentsController(req, res) {
                 });
             }
         }
+        if (taText.trim()) uploadedFiles.push({fileName:"Typing Assistant text", fileType:"TYPED_REPORT", inlineText:taText.trim()});
 
         const cleanOrderNumber = orderNumber.trim();
         console.log(`[SearchFix Step 2] Analyzing PDF evidence for Order ${cleanOrderNumber} (${uploadedFiles.length} files attached)`);
@@ -294,7 +314,7 @@ export async function analyzeSearchFix(req, res) {
  * Unified Controller Endpoint
  */
 export async function analyzeFullOrder(req, res) {
-    if (req.files && Array.isArray(req.files) && req.files.length > 0) {
+    if ((req.files && Array.isArray(req.files) && req.files.length > 0) || req.body?.orderData || req.body?.taText) {
         return analyzeDocumentsController(req, res);
     }
     return analyzeCommentsController(req, res);

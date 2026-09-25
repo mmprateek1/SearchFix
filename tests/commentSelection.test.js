@@ -112,6 +112,7 @@ function runCommentSelectionTests() {
     }
 
     console.log(`Refined Comment Selection Tests Complete: ${passed}/${total} passed.\n`);
+    if (passed !== total) process.exitCode = 1;
 }
 
 runCommentSelectionTests();

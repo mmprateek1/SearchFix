@@ -40,13 +40,8 @@ export class IssueClassificationService {
             return validated;
         } catch (error) {
             console.error("[IssueClassificationService] Error during issue classification:", error);
-            // Fallback object on failure
-            return [
-                {
-                    issueType: "OTHER",
-                    claim: selectedComment.text || "Reported SearchFix issue."
-                }
-            ];
+            // A failed AI request must not look like a successful explanation.
+            throw error;
         }
     }
 }

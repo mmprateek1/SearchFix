@@ -1,0 +1,36 @@
+<!doctype html>
+<html lang="en">
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>SearchFix Assistant</title><link rel="stylesheet" href="panel.css"></head>
+<body>
+  <header><div class="brand">SF<span>SearchFix</span></div><span class="badge">READ ONLY</span></header>
+  <main>
+    <p class="eyebrow">CLIENT COMMENT REVIEW</p><h1>Make the next step clear.</h1>
+    <p class="intro">Understand the request. Check the evidence. Review alongside Typing Assistant.</p>
+    <div class="actions"><button id="read" class="primary">Read current page</button><button id="home">Find SearchFix tasks</button></div>
+    <p id="status" role="status" aria-live="polite">Open DataTrace and click the extension to get started.</p>
+    <section id="tasksSection" hidden><h2>SearchFix tasks</h2><p class="hint">Open an order overview to read it without starting a task.</p><div id="tasks"></div></section>
+    <section id="orderSection" hidden>
+      <h2>Order overview</h2><label for="orderNumber">Order number</label><input id="orderNumber" autocomplete="off">
+      <p id="counts" class="hint"></p><p id="warnings" class="notice"></p>
+      <details><summary>Comments read from this order</summary><div id="comments"></div></details>
+      <p id="taStatus" class="hint"></p>
+      <label class="check"><input type="checkbox" id="reviewed">I checked that the relevant comment history is loaded.</label>
+      <p class="hint">Analyze sends these comments to your local SearchFix backend, which uses Google Gemini.</p>
+      <button id="analyze" class="primary">Explain client request</button>
+    </section>
+    <section id="resultSection" hidden><div class="sectionHeading"><h2>Review for Typing Assistant</h2><button id="copy">Copy notes</button></div><p class="hint">Private extension output. Nothing is inserted into the website’s TA.</p><pre id="result"></pre></section>
+    <section id="documentsSection" hidden>
+      <h2>Check supporting files</h2><p id="required" class="hint"></p>
+      <p class="hint">Select only relevant PDFs and check each file type. Filename suggestions are not document verification.</p>
+      <div id="files"></div>
+      <label for="taText">TA text from this order (optional)</label><textarea id="taText" rows="6" placeholder="Paste the existing Typing Assistant text here. This does not change the website."></textarea>
+      <button id="findWindows">Find open TA / attachment windows</button><div id="windows"></div>
+      <p class="hint">Open the website’s existing popup yourself, then read it here. The extension does not unlock TA or execute popup actions.</p>
+      <label for="localFiles">Add PDFs downloaded from this order’s Attachments or TA</label><input id="localFiles" type="file" accept="application/pdf,.pdf" multiple>
+      <p class="hint">Up to 6 PDFs, 20 MB each, 40 MB total. Selected files go to the backend and Gemini for analysis.</p>
+      <button id="verify" class="primary">Analyze selected PDFs</button>
+    </section>
+    <details id="settings"><summary>Connection and page settings</summary><p class="hint">DataTrace comments and task discovery are configured. Override selectors only if the site layout changes.</p><form id="settingsForm"></form><button id="saveSettings">Save settings</button><button id="health">Check backend</button></details>
+    <footer>Viewing only · No task claiming · No order changes</footer>
+  </main><script type="module" src="panel.js"></script>
+</body></html>

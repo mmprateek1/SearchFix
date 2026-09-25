@@ -1,5 +1,7 @@
 # SearchFix AI — Interactive 2-Step & Decision Tree System
 
+The Chrome extension is now in [`extension/`](extension/README.md). See its setup guide for the read-only DataTrace workflow, PDF attachments, and Typing Assistant text. The [project review](PROJECT_REVIEW.md) records implementation details, existing backend limitations, and validation scope.
+
 > **Version**: Refined 2-Step Interactive Decision Architecture (Internal vs Client Traversal & Document Routing)  
 > **Built with**: Node.js, Express, ES Modules, `@google/genai` (Gemini 3.5 Flash), Multer, Zod
 

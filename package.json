@@ -7,7 +7,8 @@
   "scripts": {
     "start": "node src/server.js",
     "dev": "node --watch src/server.js",
-    "test": "node tests/searchfix.test.js"
+    "test": "node --import dotenv/config --test tests/*.test.js",
+    "test:browser": "node tests/browser/server.js"
   },
   "dependencies": {
     "@google/genai": "*",
