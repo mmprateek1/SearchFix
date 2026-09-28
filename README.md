@@ -1,69 +1,51 @@
-# SearchFix AI — Interactive 2-Step & Decision Tree System
+# SearchFix 1.4.7 — local development
 
-The Chrome extension is now in [`extension/`](extension/README.md). See its setup guide for the read-only DataTrace workflow, PDF attachments, and Typing Assistant text. The [project review](PROJECT_REVIEW.md) records implementation details, existing backend limitations, and validation scope.
+Start with [LOCAL_TESTING.md](LOCAL_TESTING.md) for the demo, local service, Chrome installation and testing steps. Read [REFERENCE_DATA_REVIEW.md](REFERENCE_DATA_REVIEW.md) for the detailed analysis of the supplied files.
 
-> **Version**: Refined 2-Step Interactive Decision Architecture (Internal vs Client Traversal & Document Routing)  
-> **Built with**: Node.js, Express, ES Modules, `@google/genai` (Gemini 3.5 Flash), Multer, Zod
+## Run locally
 
----
+1. Install dependencies once with `npm ci`.
+2. Double-click `START-SearchFix.cmd` and keep it open.
+3. Load or reload the `extension` folder in `chrome://extensions`.
+4. Open the DataTrace task queue and click **Scan the page**.
+5. Enter and save your Gemini key using the button that appears after scanning.
+6. Click **Start the search fix**. Read each order's colored status and expandable findings.
 
-## 📌 Refined Comment Selection & Decision Tree
+The local launcher binds only to 127.0.0.1:3000. No server default key is used. Keys stay in extension session storage and are isolated per request. Both AIza and AQ. formats are supported; the key is saved locally without an API test.
 
-```text
-                    Incoming Comments Array (Sorted Descending by Date + Time)
-                                        │
-                                        ▼
-                        Inspect Most Recent Comment
-                                        │
-                 ┌──────────────────────┴──────────────────────┐
-                 ▼                                             ▼
-    Author is INTERNAL USER                        Author is CLIENT USER / SYSTEM
-  (e.g., KishoreK_ADSSearchType)               (e.g., RVSI-Outsource:, OWLServiceUser)
-                 │                                             │
-      ┌──────────┴──────────┐                       ┌──────────┴──────────┐
-      ▼                     ▼                       ▼                     ▼
-Comment contains      Valid Meaningful     Comment is SUSPEND /   Actual Client
-   SUSPEND:            Comment (ETA /       OWLServiceUser /       Complaint Comment
-      │             Abstractor Recheck)    Vague ("please advise") (e.g., "missed name
-      │                     │                       │               search in pacer")
-      ▼                     ▼                       ▼                     │
-Ignore & Trace        Set Selected Comment    Store Context &             ▼
-Back to Next           Mark as Internal        Trace Back to         Set Selected
-Most Recent           Status Explanation      Next Most Recent          Client Claim
-Comment                     │                    Comment                  │
-                            ▼                                             ▼
-                    Return JSON Response                        Classify Issue(s)
-                    decision: "DISPUTED"                        Map Required File Types
-                    reason: "Internal work                      Return JSON Response
-                    in progress / valid"                        requiredFiles + "AWAITING_DOCUMENTS"
-```
+## Reference support
 
----
+The backend consults the supplied consolidated workbook, September workbook and scanned email category guidance. After excluding missing comments, merging duplicates and separating ambiguous labels, 2,010 historical cases are eligible as examples. Another 108 pending clarifications are retained separately.
 
-## 📡 Endpoint Testing Guide
+Comment classification and final evidence comparison receive relevant examples and category guidance. Results include the business category and historical source-row references. This is reference-guided analysis, not fine-tuning. Historical corrections, counts and matching order IDs never substitute for current documents. The same category can produce Accepted or Disputed.
 
-### 🔹 STEP 1: `POST /api/searchfix/analyze-comments`
+The original files remain unchanged. The prepared library is in `data/reference` and must accompany the backend. It is not embedded in the extension. The internal history file is excluded from Git by default but included in the local setup package.
 
-- **Scenario A (Internal User Valid Status Update - e.g. Order 4 / Order 5)**:
-  - When the latest comment is an internal user status explanation (e.g., `KishoreK_ADSSearchType`: *"ETA added... requested abstractor to recheck..."*), backend returns a **`DISPUTED`** JSON response directly, explaining that search work is in-progress and no files are required from the extension.
+## Preserved behavior
 
-- **Scenario B (Client Complaint Comment - e.g. Order 1, Order 3, Order 7, Order 8)**:
-  - Traces back past system `OWLServiceUser` and `SUSPEND:` comments, selects the primary client complaint, and returns `requiredFiles` (with reasons) and `status: "AWAITING_DOCUMENTS"`.
+- Comments start with `gemini-3.5-flash-lite`; document analysis and evidence decisions start with `gemini-3.8-flash`. Both use the ordered fallback chains below.
+- The existing selected-comment rules remain: ADSSearchType is ignored; RVSI operational-only fee/status/ETA messages are ignored; mixed concrete complaints continue.
+- Required PDFs come from the verified order's Attachments view. TA comes only from Typing Assistant text.
+- Missing/unreadable evidence leads to Review required and the queue continues.
+- No DataTrace task claiming, status changes, field edits, uploads, comment posting or TA unlocking.
 
----
+Numeric filename prefixes vary. Pacer, Patriot, Search Package, Index Snapshot, THR and Cost Work Sheet are recognized by type. INDEX is independently required where mapped; Search Package cannot substitute for it. Only relevant required files are downloaded.
 
-### 🔹 STEP 2: `POST /api/searchfix/analyze-documents`
+Existing boundaries remain: loaded queue/comment rows only, no automatic pagination, six PDFs, 20 MB each and 40 MB total. Keep the panel open; closing it interrupts processing and clears results. Analysis sessions expire after 30 minutes or a service restart.
 
-- **Content-Type**: `multipart/form-data`
-- **Form Fields**:
-  - `orderData`: JSON string with `orderNumber` & `comments`.
-  - `file1`, `file2`, etc.: Uploaded PDF files downloaded by Chrome Extension.
-- **Backend Execution**: Analyzes target PDFs via Gemini Files API (`@google/genai`), extracts page-numbered evidence, compares claim vs evidence, and returns `ACCEPTED`, `DISPUTED`, or `REVIEW_REQUIRED`.
+## Model fallback
 
----
+The ordered candidates are defined in `src/config/modelFallbacks.js`:
 
-## 🧪 Running Automated Tests
+- Text/comments: `gemini-3.5-flash-lite` → `gemini-3.1-flash-lite` → `gemini-3.5-flash`.
+- Documents/evidence decisions: `gemini-3.8-flash` → `gemini-3.7-flash` → `gemini-3.6-flash` → `gemini-3.5-flash` → `gemini-3.5-flash-lite` → `gemini-3.1-flash-lite` → `gemini-2.5-flash`.
 
-```bash
-npm test
-```
+Each request checks the chain in order and skips models whose reserved RPM, TPM or RPD budget cannot fit it. Only eligible models receive requests. Unavailable models (404), rate limits (429), temporary server failures (500/502/503/504) and recognized temporary network failures advance to the next candidate. The final candidate retains up to three attempts with 1-second then 2-second backoff for transient failures. Invalid requests or credentials (400/401/403) stop immediately. If all candidates fail, the existing failure/review handling applies.
+
+The supplied AI Studio limits are configured with a 20% buffer. Token preflight, saved counters and retry accounting are described in [RATE_LIMITS.md](RATE_LIMITS.md). The extension saves your key immediately and makes no verification calls, including when Start is pressed. The first Gemini calls are for the actual analysis. All attempts preserve the entered key, prompts and evidence. Legacy single-model environment settings are ignored so they cannot override this order. These are requested candidate identifiers; runtime access depends on the provider and account, and fallback does not guarantee additional quota.
+
+## Checks and API
+
+Use `TEST-SearchFix.cmd` or `node --test tests/*.test.js`. Use `PREVIEW-SearchFix.cmd` for the synthetic UI demo. Mocked checks do not establish live model accuracy.
+
+API routes remain `/api/searchfix/validate-key`, `/analyze-comments`, `/analyze-documents` and `/analyze`. All require the supplied `X-SearchFix-Gemini-Key`. `/health` reports version and service availability. The response's `references` field identifies the consulted sources, library version and matched example locations.

@@ -1,20 +1,93 @@
 import fs from "fs";
-import { GoogleGenAI } from "@google/genai";
 import { validateSearchFixResponse } from "../utils/responseValidator.js";
 import { getSystemPrompt, getUserPrompt } from "../prompts/searchfix.prompt.js";
+import { currentGeminiClient } from "./geminiContext.service.js";
+import { trace } from './trace.service.js';
+import { modelsFor } from '../config/modelFallbacks.js';
+import { geminiBudget, budgetError } from './geminiBudget.service.js';
 
-/**
- * Fallback models list if primary model experiences temporary 503 high-demand spike.
- */
-const FALLBACK_MODELS = ["gemini-3.7-flash", "gemini-3.5-flash", "gemini-3.8-flash"];
+// Use the configured chain order, including when an older .env names one model.
+export function modelFor(stage = "comments") {
+    return modelsFor(stage)[0];
+}
 
 export class GeminiService {
-    constructor() {
-        const apiKey = process.env.GEMINI_API_KEY;
-        if (!apiKey || apiKey === "YOUR_GEMINI_API_KEY") {
-            console.warn("[SearchFix AI] Warning: GEMINI_API_KEY is not set or using placeholder value.");
+    constructor(client = null, { wait = ms => new Promise(resolve => setTimeout(resolve, ms)), budget = geminiBudget } = {}) {
+        // Explicit dependency injection for tests; NEVER read GEMINI_API_KEY.
+        this.defaultClient = client;
+        this.wait = wait;
+        this.budget = budget;
+    }
+
+    get ai() {
+        const client = currentGeminiClient() || this.defaultClient;
+        if (!client) throw new Error("Add a Gemini API key in the extension before analysis.");
+        return client;
+    }
+
+    set ai(client) { this.defaultClient = client; }
+
+    async validateKey() {
+        const models = [];
+        for (const stage of ["comments", "documents"]) {
+            const { model } = await this.withModelFallback(stage, async model => {
+                trace('key.model-check.start', { stage, model });
+                const response = await this.guardedGenerate({
+                    model, contents: "Reply with OK.", config: { maxOutputTokens: 32 }
+                });
+                trace('key.model-check.complete', { stage, model });
+                return response;
+            });
+            models.push(model);
         }
-        this.ai = new GoogleGenAI({ apiKey: apiKey || "" });
+        return { valid: true, credentialSource: "request", models };
+    }
+
+    async guardedGenerate(request) {
+        if (!this.budget) return this.ai.models.generateContent(request); // Explicit test injection only.
+        const { model, contents, config } = request;
+        try {
+            // Conservatively budget token-count calls as requests too. Check that both
+            // count and generation can fit before spending the first request.
+            this.budget.check(model, { requests: 2 });
+            this.budget.reserve(model);
+            // This SDK's Developer API does not support systemInstruction in countTokens.
+            // Count it as an extra text part, along with every PDF/text evidence part.
+            const countContents = [config?.systemInstruction || '', ...(Array.isArray(contents) ? contents : [contents])];
+            const count = await this.ai.models.countTokens({ model, contents: countContents });
+            if (!Number.isSafeInteger(count.totalTokens) || count.totalTokens < 0) {
+                throw budgetError('Gemini could not confirm the input token count. Analysis was not sent.');
+            }
+            // Allow for role/format overhead in addition to the configured quota headroom.
+            const tokens = Math.ceil(count.totalTokens * 1.1) + 256;
+            const reservation = this.budget.reserve(model, { tokens });
+            const response = await this.ai.models.generateContent(request);
+            this.budget.reconcile(reservation, response.usageMetadata?.promptTokenCount);
+            return response;
+        } catch (error) {
+            if (error.localQuota) trace('gemini.budget-skip', { model, code: 'LOCAL_QUOTA' });
+            else if (error.status === 429) this.budget.cooldown(model);
+            throw error;
+        }
+    }
+
+    async withModelFallback(stage, call) {
+        const models = modelsFor(stage);
+        for (const [index, model] of models.entries()) {
+            try {
+                // Move promptly to the next candidate; retain bounded backoff on the last.
+                const response = await this.retryWithBackoff(() => call(model), index === models.length - 1 ? 3 : 1);
+                return { response, model };
+            } catch (error) {
+                if (!error.modelFallbackAllowed) throw error;
+                if (index === models.length - 1) {
+                    trace('gemini.chain-exhausted', { stage, model, httpStatus: error.status || 0 });
+                    error.message = `No model in the ${stage} fallback chain succeeded. ${error.message}`;
+                    throw error;
+                }
+                trace('gemini.model-fallback', { stage, model, httpStatus: error.status || 0 });
+            }
+        }
     }
 
     /**
@@ -27,22 +100,31 @@ export class GeminiService {
             try {
                 return await fn();
             } catch (error) {
-                const isRetryable = error.status === 503 ||
-                    error.status === 429 ||
+                if (error.localQuota) throw error;
+                trace('gemini.attempt.failed',{attempt,httpStatus:Number.isInteger(error.status)?error.status:0});
+                const isRetryable = [429, 500, 502, 503, 504].includes(error.status) ||
+                    (!error.status &&
                     (error.message && (
                         error.message.includes("503") ||
                         error.message.includes("high demand") ||
                         error.message.includes("UNAVAILABLE") ||
                         error.message.includes("RATE_LIMIT") ||
                         error.message.includes("ECONNRESET")
-                    ));
+                    )));
 
                 if (isRetryable && attempt < maxRetries) {
-                    console.warn(`[GeminiService] API call failed (Attempt ${attempt}/${maxRetries}): ${error.message}. Retrying in ${delay}ms...`);
-                    await new Promise(resolve => setTimeout(resolve, delay));
+                    console.warn(`[GeminiService] API call failed (Attempt ${attempt}/${maxRetries}). Retrying in ${delay}ms...`);
+                    await this.wait(delay);
                     delay *= 2; // exponential backoff
                 } else {
-                    throw error;
+                    // SDK errors can contain request headers/URLs. Never propagate credentials.
+                    const messages = { 400: "Gemini rejected the key or request. Check your key and model access.", 401: "Gemini rejected this API key.", 403: "This API key does not have permission to use the requested Gemini model.", 404: "A configured Gemini model is unavailable to this API key.", 429: "This API key has reached a Gemini quota or rate limit. Check billing/quota and retry." };
+                    messages[503] = "Gemini is temporarily unavailable (503). Please retry shortly; this does not establish that your API key is invalid.";
+                    const safe = new Error(messages[error.status] || "Gemini request failed. Check the API key, model access, quota, and connection.");
+                    safe.code = "GEMINI_REQUEST_FAILED";
+                    safe.modelFallbackAllowed = error.status === 404 || Boolean(isRetryable);
+                    if (Number.isInteger(error.status)) safe.status = error.status;
+                    throw safe;
                 }
             }
         }
@@ -64,34 +146,24 @@ export class GeminiService {
 
     /**
      * Executes standard generateContent call returning raw text or JSON.
-     * Includes automatic 503 retry and model fallback.
+     * Uses the ordered fallback chain for this analysis stage.
      */
-    async generateJSON(systemInstruction, userPrompt) {
-        const primaryModel = process.env.GEMINI_MODEL || "gemini-2.5-flash";
-        const modelsToTry = [primaryModel, ...FALLBACK_MODELS.filter(m => m !== primaryModel)];
+    async generateJSON(systemInstruction, userPrompt, stage = "comments") {
+        return this.generate(systemInstruction, userPrompt, stage);
+    }
 
-        let lastError = null;
-
-        for (const modelName of modelsToTry) {
-            try {
-                return await this.retryWithBackoff(async () => {
-                    const response = await this.ai.models.generateContent({
-                        model: modelName,
-                        contents: userPrompt,
-                        config: {
-                            systemInstruction,
-                            responseMimeType: "application/json"
-                        }
-                    });
-                    return response.text;
-                });
-            } catch (error) {
-                lastError = error;
-                console.warn(`[GeminiService] Model '${modelName}' failed with error: ${error.message}. Trying next fallback model if available...`);
-            }
-        }
-
-        throw lastError || new Error("Gemini generateJSON failed on all models.");
+    async generate(systemInstruction, contents, stage) {
+        const started=Date.now();
+        const { response } = await this.withModelFallback(stage, async model => {
+            trace('gemini.generate.start',{stage,model});
+            const response = await this.guardedGenerate({
+                model, contents,
+                config: { systemInstruction, responseMimeType: "application/json" }
+            });
+            trace('gemini.generate.complete',{stage,model,durationMs:Date.now()-started});
+            return response;
+        });
+        return response.text;
     }
 
     /**
@@ -131,39 +203,14 @@ export class GeminiService {
      * Executes generateContent with attached File handles or Inline Base64 PDF parts.
      */
     async generateContentWithFiles(systemInstruction, userPrompt, fileObjects = []) {
-        const primaryModel = process.env.GEMINI_MODEL || "gemini-2.5-flash";
-        const modelsToTry = [primaryModel, ...FALLBACK_MODELS.filter(m => m !== primaryModel)];
-        const contents = [...fileObjects, userPrompt];
-
-        let lastError = null;
-
-        for (const modelName of modelsToTry) {
-            try {
-                return await this.retryWithBackoff(async () => {
-                    const response = await this.ai.models.generateContent({
-                        model: modelName,
-                        contents,
-                        config: {
-                            systemInstruction,
-                            responseMimeType: "application/json"
-                        }
-                    });
-                    return response.text;
-                });
-            } catch (error) {
-                lastError = error;
-                console.warn(`[GeminiService] generateContentWithFiles failed on model '${modelName}': ${error.message}. Trying next fallback...`);
-            }
-        }
-
-        throw lastError || new Error("Gemini generateContentWithFiles failed on all models.");
+        return this.generate(systemInstruction, [...fileObjects, userPrompt], "documents");
     }
 
     /**
      * Legacy Phase 1 analysis method for backwards compatibility.
      */
     async analyzeComments(orderNumber, comments) {
-        const modelName = process.env.GEMINI_MODEL || "gemini-2.5-flash";
+        const modelName = modelFor("comments");
         console.log(`[SearchFix AI] Request started for Order: ${orderNumber} (${comments.length} comments) using model ${modelName}`);
 
         const systemInstruction = getSystemPrompt();

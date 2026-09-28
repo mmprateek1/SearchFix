@@ -1,7 +1,8 @@
-export const DOCUMENT_TYPES = ["SEARCH_PACKAGE", "DEED", "DOT", "TAX", "PA", "LEGAL_DESCRIPTION", "MAP", "LIEN", "PACER", "PATRIOT", "TYPED_REPORT", "COST_WORKSHEET", "THR"];
+import { BACKEND_ORIGIN } from "./deployment.js";
+export const DOCUMENT_TYPES = ["SEARCH_PACKAGE", "DEED", "DOT", "TAX", "PA", "LEGAL_DESCRIPTION", "MAP", "LIEN", "PACER", "PATRIOT", "TYPED_REPORT", "COST_WORKSHEET", "THR", "INDEX"];
 
 export const DEFAULT_SETTINGS = {
-  backend: "http://localhost:3000",
+  backend: BACKEND_ORIGIN,
   order: "[id$='_lblServiceProviderOrderNumber'], [data-order-number]",
   comments: "[id$='_OrderCommentControl1_dgComments'], [data-searchfix-comments], #comments, #order-comments",
   commentRow: "[data-comment], tbody tr",
@@ -13,10 +14,12 @@ export const DEFAULT_SETTINGS = {
   taRead: "[data-typing-assistant], #typing-assistant"
 };
 
-export function backendURL(value) {
+export function backendURL(value, configuredOrigin = BACKEND_ORIGIN) {
   const url = new URL(value);
-  if (!["http://localhost:3000", "http://127.0.0.1:3000"].includes(url.origin) || url.username || url.password || url.pathname !== "/" || url.search || url.hash) {
-    throw new Error("Use http://localhost:3000 or http://127.0.0.1:3000. Remote deployment requires explicit host configuration.");
+  const local = ["http://localhost:3000", "http://127.0.0.1:3000"];
+  const allowed = local.includes(configuredOrigin) ? local : [configuredOrigin];
+  if (!allowed.includes(url.origin) || (!local.includes(url.origin) && url.protocol !== "https:") || url.username || url.password || url.pathname !== "/" || url.search || url.hash) {
+    throw new Error("The analysis service must match the address packaged with this extension and use HTTPS when hosted.");
   }
   return url.origin;
 }
@@ -27,10 +30,11 @@ export function guessDocumentType(name) {
     [/\b(TYPED|REPORT TYPED|TYPING|TA)\b/, "TYPED_REPORT"],
     [/\b(PACER|BANKRUPTCY)\b/, "PACER"], [/\bPATRIOT\b/, "PATRIOT"],
     [/\b(THR|TRANSACTION HISTORY)\b/, "THR"], [/\b(DEED OF TRUST|DOT|MORTGAGE)\b/, "DOT"],
-    [/\bDEED\b/, "DEED"], [/\bTAX\b/, "TAX"], [/\b(PA|PROPERTY ASSESSMENT)\b/, "PA"],
+    [/\bDEED\b/, "DEED"], [/\bTAX\b/, "TAX"], [/\b(PA|PASANP|PASNAP|PASNAPSHOT|PROPERTY ASSESSMENT)\b/, "PA"],
     [/\bLEGAL\b/, "LEGAL_DESCRIPTION"], [/\b(MAP|PLAT)\b/, "MAP"],
     [/\bLIEN\b/, "LIEN"], [/\bCOST\b/, "COST_WORKSHEET"],
-    [/\b(SEARCH PACKAGE|SEARCH INDEX|SEARCH INDEXES)\b/, "SEARCH_PACKAGE"]
+    [/\b(SEARCH INDEX|SEARCH INDEXES|INDEX|INDEXES)\b/, "INDEX"],
+    [/\bSEARCH PACKAGE\b/, "SEARCH_PACKAGE"]
   ];
   return rules.find(([pattern]) => pattern.test(words))?.[1] || "";
 }
@@ -51,13 +55,19 @@ export function validateOrder(order) {
 
 export function buildAssistantText(result) {
   const lines = [`SearchFix review — ${result.orderNumber}`, ""];
+  const decision = result.overallDecision || result.status;
+  if (decision) lines.push(`Status: ${decision.replaceAll("_", " ")}`, "");
+  if (result.reason) lines.push(result.reason, "");
   const selected = result.commentAnalysis?.selectedComment;
   if (selected) lines.push(`Comment reviewed (${selected.author || "Unknown"}):`, selected.text, "");
-  if (selected?.role === "INTERNAL" && !result.issues?.length) {
+  if (decision === "IGNORED") {
+    lines.push("Order ignored. No supporting documents were analyzed; processing continues with the next SearchFix order.");
+  } else if (selected?.role === "INTERNAL" && !result.issues?.length) {
     lines.push("The latest selected comment is an internal status update. The backend labels this DISPUTED under its existing routing rule. This is not document verification or proof that the client concern is resolved.", "", "Next step: review the earlier client request and the pending internal follow-up.");
   } else {
     for (const [index, issue] of (result.issues || []).entries()) {
       lines.push(`${index + 1}. What the client needs: ${issue.claim || issue.clientClaim}`);
+      if (issue.category) lines.push(`Category: ${issue.category}`);
       if (issue.decision) lines.push(`Assessment: ${issue.decision.replaceAll("_", " ")}`, issue.reason || "");
       if (issue.requiredFiles?.length) lines.push(`Files to check: ${issue.requiredFiles.map(f => f.fileType.replaceAll("_", " ")).join(", ")}`);
       for (const evidence of issue.evidence || []) {
@@ -68,6 +78,10 @@ export function buildAssistantText(result) {
     }
     if (result.status === "AWAITING_DOCUMENTS") lines.push("Next step: review the relevant attachments below. The client's request has not yet been verified against documents.");
     else lines.push("Next step: check the cited evidence and any REVIEW REQUIRED items before deciding what to tell the client.");
+  }
+  if (result.references) {
+    lines.push("", `References consulted: ${result.references.sources.join("; ")}`, result.references.note);
+    for (const example of result.references.examples) lines.push(`Historical comparison (${example.category}, ${example.outcome}): ${example.sources.map(s=>`${s.file}, ${s.sheet}, row ${s.row}`).join("; ")}`);
   }
   lines.push("", "Review notes only. No order fields, files, comments, or website Typing Assistant content have been changed.");
   return lines.join("\n");

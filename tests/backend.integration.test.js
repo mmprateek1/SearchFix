@@ -60,7 +60,7 @@ test("HTTP multipart TA-only requests work through both document routes", async 
   try {
     for(const endpoint of ["analyze-documents","analyze"]){
       const form=new FormData();form.append("orderData",JSON.stringify({...order,taText:"Synthetic Borrower"}));
-      const response=await fetch(`http://127.0.0.1:${server.address().port}/api/searchfix/${endpoint}`,{method:"POST",body:form});
+      const response=await fetch(`http://127.0.0.1:${server.address().port}/api/searchfix/${endpoint}`,{method:"POST",headers:{"X-SearchFix-Gemini-Key":"TEST_KEY_12345678901234567890"},body:form});
       assert.equal(response.status,200);assert.equal((await response.json()).overallDecision,"REVIEW_REQUIRED");
     }
   } finally {await new Promise(resolve=>server.close(resolve));geminiService.generateJSON=originalJSON;geminiService.generateContentWithFiles=originalFiles;}

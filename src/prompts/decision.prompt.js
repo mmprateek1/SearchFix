@@ -15,6 +15,7 @@ STRICT CONSTRAINTS:
 2. Never invent evidence.
 3. If no relevant documents were provided for the issue, return "REVIEW_REQUIRED" with reason explaining that required documents were missing.
 4. Provide a clear, professional justification ("reason").
+5. Consult the supplied category catalogue, email observations, and historical examples, but base the outcome on CURRENT evidence. Historical revision text often describes a correction made later; never treat that correction as having occurred on this order. Historical counts are not a fixed outcome rule or a confidence score. Explain whether the current facts support the comparison; if references conflict, do not force a result.
 
 REQUIRED JSON RESPONSE FORMAT:
 {

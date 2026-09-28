@@ -35,7 +35,7 @@ function runCommentSelectionTests() {
             { date: "2026-09-21", time: "05:20", author: "RVSI-Outsource: Pjayaram_FAI", text: "In mtg borrower showing as Michelle E McCutcheon missed to run name search in pacer." }
         ];
 
-        const { selectedComment, isInternalStatusExplanation } = commentSelectionService.selectSearchFixComment(comments);
+        const { selectedComment, isInternalStatusExplanation, ignoreReason } = commentSelectionService.selectSearchFixComment(comments);
 
         if (selectedComment.author === "RVSI-Outsource: Pjayaram_FAI" && !isInternalStatusExplanation) {
             console.log("✓ Order 1 System suspend traversal passed (selected client complaint).");
@@ -57,10 +57,10 @@ function runCommentSelectionTests() {
             { date: "2026-09-18", time: "14:49", author: "RVSI-Outsource: RakshithaMS_FAI", text: "Please review Carolina Carbajal court results. D-01-CV-26-027465 reflects status Open..." }
         ];
 
-        const { selectedComment, isInternalStatusExplanation } = commentSelectionService.selectSearchFixComment(comments);
+        const { selectedComment, isInternalStatusExplanation, ignoreReason } = commentSelectionService.selectSearchFixComment(comments);
 
-        if (selectedComment.author === "RVSI-Outsource: RakshithaMS_FAI" && !isInternalStatusExplanation) {
-            console.log("✓ Order 3 Internal suspend traversal passed (selected client court complaint).");
+        if (selectedComment.author === "HarryS_ADSSearchType" && !!ignoreReason) {
+            console.log("✓ Order 3 ADSSearchType suspend ignored.");
             passed++;
         } else {
             console.error("✗ Order 3 traversal failed:", selectedComment);
@@ -78,10 +78,10 @@ function runCommentSelectionTests() {
             { date: "2026-09-21", time: "03:14", author: "RVSI-Outsource: PVinay_FAI", text: "Break in chain prior deed vests title in Virginia S. Goodman..." }
         ];
 
-        const { selectedComment, isInternalStatusExplanation } = commentSelectionService.selectSearchFixComment(comments);
+        const { selectedComment, isInternalStatusExplanation, ignoreReason } = commentSelectionService.selectSearchFixComment(comments);
 
-        if (selectedComment.author === "KishoreK_ADSSearchType" && isInternalStatusExplanation) {
-            console.log("✓ Order 4 Internal valid status comment test passed (isInternalStatusExplanation = true).");
+        if (selectedComment.author === "KishoreK_ADSSearchType" && !!ignoreReason) {
+            console.log("✓ Order 4 ADSSearchType status ignored.");
             passed++;
         } else {
             console.error("✗ Order 4 internal status test failed:", selectedComment);
@@ -99,10 +99,10 @@ function runCommentSelectionTests() {
             { date: "2026-09-21", time: "09:23", author: "RVSI-Outsource: jyakshith_FAI", text: "Please provide the required No Open Mortgage Checklist documentation... upload marked-up search indexes and Transaction History Report (THR)..." }
         ];
 
-        const { selectedComment, isInternalStatusExplanation } = commentSelectionService.selectSearchFixComment(comments);
+        const { selectedComment, isInternalStatusExplanation, ignoreReason } = commentSelectionService.selectSearchFixComment(comments);
 
-        if (selectedComment.author === "RVSI-Outsource: jyakshith_FAI" && !isInternalStatusExplanation) {
-            console.log("✓ Order 8 Internal logout suspend traversal passed (selected client THR request).");
+        if (selectedComment.author === "KishoreK_ADSSearchType" && !!ignoreReason) {
+            console.log("✓ Order 8 ADSSearchType logout ignored.");
             passed++;
         } else {
             console.error("✗ Order 8 traversal failed:", selectedComment);

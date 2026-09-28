@@ -6,14 +6,44 @@ import { documentAnalysisService } from "../services/documentAnalysis.service.js
 import { evidenceService } from "../services/evidence.service.js";
 import { decisionEngine } from "../services/decision.service.js";
 import { SearchFixStep1ResultSchema, SearchFixStep2ResultSchema } from "../schemas/result.schema.js";
-import { geminiService } from "../services/gemini.service.js";
 import { OrderInputSchema } from "../schemas/comment.schema.js";
 import { DOCUMENT_TYPES } from "../config/documentMappings.js";
+import { saveAnalysis, loadAnalysis } from "../services/analysisSession.service.js";
+import { referenceAudit, referenceContext } from "../services/reference.service.js";
+import { trace } from '../services/trace.service.js';
+
+
+// Shared routing for both endpoints: ignored orders never reach evidence analysis.
+async function routeComments(comments) {
+    const selection = commentSelectionService.selectSearchFixComment(comments);
+    const commentAnalysis = {
+        selectedComment: selection.selectedComment,
+        contextCommentsUsed: selection.contextCommentsUsed
+    };
+    const reference = referenceContext(selection.selectedComment.text);
+    trace('comments.selected',{status:selection.ignoreReason?'IGNORED':selection.isInternalStatusExplanation?'INTERNAL':'CLIENT',count:selection.contextCommentsUsed.length});
+    trace('references.selected',{count:reference.examples.length});
+    if (selection.ignoreReason) return { commentAnalysis, reference, terminal: "IGNORED", reason: selection.ignoreReason };
+    if (selection.isInternalStatusExplanation) return {
+        commentAnalysis, reference, terminal: "DISPUTED",
+        reason: "Internal status update under the existing non-ADSSearchType routing rule; not document verification."
+    };
+    const classification = await issueClassificationService.analyzeComment(selection.selectedComment, selection.contextCommentsUsed);
+    trace('comments.classified',{count:classification.issues.length});
+    if (classification.ignoreReason) return { commentAnalysis, reference: classification.reference || reference, terminal: "IGNORED", reason: classification.ignoreReason };
+    return { commentAnalysis, reference: classification.reference || reference, issues: documentSelectionService.selectRequiredDocuments(classification.issues) };
+}
+
+function terminalPayload(route, orderNumber, analysisId) {
+    return { analysisId, orderNumber, commentAnalysis: route.commentAnalysis, issues: [],
+        status: route.terminal, overallDecision: route.terminal, reason: route.reason, references: referenceAudit(route.reference) };
+}
 
 /**
  * STEP 1 ENDPOINT CONTROLLER:
  * Receives order comments from Chrome Extension, executes the Internal vs Client decision tree.
- * - If Internal User Status Update -> returns DISPUTED immediately.
+ * - ADSSearchType and RVSI operational updates return IGNORED.
+ * - Other internal status updates retain their existing DISPUTED routing.
  * - If Client Complaint -> returns required document list with status: "AWAITING_DOCUMENTS".
  */
 export async function analyzeCommentsController(req, res) {
@@ -34,51 +64,15 @@ export async function analyzeCommentsController(req, res) {
         }
         console.log(`[SearchFix Step 1] Analyzing comments for Order ${cleanOrderNumber} (${comments.length} comments)`);
 
-        // 1. Comment Selection & Timeline Traversal
-        const { selectedComment, contextCommentsUsed, isInternalStatusExplanation } = commentSelectionService.selectSearchFixComment(comments);
-
-        const analysisId = `SF-${cleanOrderNumber}-${Date.now()}`;
-
-        // CASE 1A: Internal User Valid Comment explaining status (e.g. "ETA added... requested abstractor to re-check")
-        if (isInternalStatusExplanation) {
-            console.log(`[SearchFix Step 1] Order ${cleanOrderNumber}: Selected internal user comment (${selectedComment.author}). Returning DISPUTED.`);
-            
-            return res.status(200).json({
-                analysisId,
-                orderNumber: cleanOrderNumber,
-                commentAnalysis: {
-                    selectedComment: {
-                        date: selectedComment.date,
-                        time: selectedComment.time,
-                        author: selectedComment.author,
-                        role: selectedComment.role,
-                        text: selectedComment.text
-                    },
-                    contextCommentsUsed: contextCommentsUsed.map(c => ({
-                        date: c.date,
-                        time: c.time,
-                        author: c.author,
-                        role: c.role,
-                        text: c.text,
-                        purpose: c.purpose
-                    }))
-                },
-                issues: [],
-                overallDecision: "DISPUTED",
-                reason: `Internal company comment by ${selectedComment.author} ("${selectedComment.text}") confirms order is actively being handled. No unaddressed client error detected.`,
-                status: "DISPUTED"
-            });
-        }
-
-        // CASE 2C: Client Complaint Comment
-        // 2. Issue Classification
-        const rawIssues = await issueClassificationService.classifyIssues(selectedComment, contextCommentsUsed);
-
-        // 3. Rule-Based Document Selection
-        const issuesWithDocs = documentSelectionService.selectRequiredDocuments(rawIssues);
+        const route = await routeComments(comments);
+        trace('comments.routed',{status:route.terminal || 'AWAITING_DOCUMENTS',required:[...new Set((route.issues || []).flatMap(issue=>issue.requiredDocuments))]});
+        const analysisId = saveAnalysis(cleanOrderNumber, comments, route);
+        if (route.terminal) return res.status(200).json(SearchFixStep1ResultSchema.parse(terminalPayload(route, cleanOrderNumber, analysisId)));
+        const issuesWithDocs = route.issues;
 
         const formattedIssues = issuesWithDocs.map(issue => ({
             issueType: issue.issueType,
+            category: issue.category,
             claim: issue.claim,
             requiredFiles: issue.requiredDocuments.map(docType => ({
                 fileType: docType,
@@ -89,23 +83,8 @@ export async function analyzeCommentsController(req, res) {
         const step1Payload = {
             analysisId,
             orderNumber: cleanOrderNumber,
-            commentAnalysis: {
-                selectedComment: {
-                    date: selectedComment.date,
-                    time: selectedComment.time,
-                    author: selectedComment.author,
-                    role: selectedComment.role,
-                    text: selectedComment.text
-                },
-                contextCommentsUsed: contextCommentsUsed.map(c => ({
-                    date: c.date,
-                    time: c.time,
-                    author: c.author,
-                    role: c.role,
-                    text: c.text,
-                    purpose: c.purpose
-                }))
-            },
+            commentAnalysis: route.commentAnalysis,
+            references: referenceAudit(route.reference),
             issues: formattedIssues,
             status: "AWAITING_DOCUMENTS"
         };
@@ -116,7 +95,8 @@ export async function analyzeCommentsController(req, res) {
         return res.status(200).json(validatedResult);
 
     } catch (error) {
-        console.error("[SearchFix Controller] Step 1 analysis failed:", error);
+        trace('comments.failed',{code:error.code || 'COMMENT_ERROR'});
+        if (error.code === "GEMINI_REQUEST_FAILED") return res.status(502).json({ error: error.message });
         return res.status(500).json({ error: "SearchFix comment analysis failed." });
     }
 }
@@ -133,7 +113,7 @@ export async function analyzeDocumentsController(req, res) {
     try {
         let bodyData = req.body;
 
-        if (typeof req.body.orderData === "string") {
+        if (typeof req.body?.orderData === "string") {
             try {
                 bodyData = JSON.parse(req.body.orderData);
             } catch (e) {
@@ -162,6 +142,13 @@ export async function analyzeDocumentsController(req, res) {
             return res.status(400).json({error: "Invalid comment data or TA text (maximum 120,000 characters)."});
         }
 
+        const cleanOrderNumber = orderNumber.trim();
+        const route = analysisId ? loadAnalysis(analysisId, cleanOrderNumber, comments) : await routeComments(comments);
+        trace('analysis.context.loaded',{source:analysisId?'saved-session':'comments'});
+        if (route.terminal) return res.status(200).json(SearchFixStep2ResultSchema.parse(
+            terminalPayload(route, cleanOrderNumber, analysisId || `SF-${cleanOrderNumber}-${Date.now()}`)));
+        const issuesWithDocs = route.issues;
+
         const uploadedFiles = [];
         if (req.files && Array.isArray(req.files)) {
             for (const file of req.files) {
@@ -173,6 +160,8 @@ export async function analyzeDocumentsController(req, res) {
                 let fileType = "SEARCH_PACKAGE";
                 if (req.body[`fileType_${file.fieldname}`]) {
                     fileType = req.body[`fileType_${file.fieldname}`];
+                } else if (file.originalname.toUpperCase().includes("INDEX")) {
+                    fileType = "INDEX";
                 } else if (file.originalname.toUpperCase().includes("DEED")) {
                     fileType = "DEED";
                 } else if (file.originalname.toUpperCase().includes("TAX")) {
@@ -198,55 +187,27 @@ export async function analyzeDocumentsController(req, res) {
             }
         }
         if (taText.trim()) uploadedFiles.push({fileName:"Typing Assistant text", fileType:"TYPED_REPORT", inlineText:taText.trim()});
-
-        const cleanOrderNumber = orderNumber.trim();
-        console.log(`[SearchFix Step 2] Analyzing PDF evidence for Order ${cleanOrderNumber} (${uploadedFiles.length} files attached)`);
-
-        // Stage 1: Comment Selection & Timeline Traversal
-        const { selectedComment, contextCommentsUsed, isInternalStatusExplanation } = commentSelectionService.selectSearchFixComment(comments);
-
-        if (isInternalStatusExplanation) {
-            return res.status(200).json({
-                analysisId: analysisId || `SF-${cleanOrderNumber}-${Date.now()}`,
-                orderNumber: cleanOrderNumber,
-                commentAnalysis: {
-                    selectedComment: {
-                        date: selectedComment.date,
-                        time: selectedComment.time,
-                        author: selectedComment.author,
-                        role: selectedComment.role,
-                        text: selectedComment.text
-                    },
-                    contextCommentsUsed: contextCommentsUsed.map(c => ({
-                        date: c.date,
-                        time: c.time,
-                        author: c.author,
-                        role: c.role,
-                        text: c.text,
-                        purpose: c.purpose
-                    }))
-                },
-                issues: [],
-                overallDecision: "DISPUTED"
-            });
-        }
-
-        // Stage 2: Issue Classification
-        const rawIssues = await issueClassificationService.classifyIssues(selectedComment, contextCommentsUsed);
-
-        // Stage 3: Document Selection Mapping
-        const issuesWithDocs = documentSelectionService.selectRequiredDocuments(rawIssues);
+        trace('evidence.received',{count:(req.files || []).length,bytes:(req.files || []).reduce((n,f)=>n+(f.size || 0),0),characters:taText.length});
 
         // Stage 4-6: PDF Document Analysis, Evidence Extraction & Decision Engine
         const processedIssues = [];
 
+        let missingRequiredEvidence = false;
         for (const issue of issuesWithDocs) {
+            trace('evidence.analysis.start',{issueType:issue.issueType,required:issue.requiredDocuments});
             const rawEvidence = await documentAnalysisService.analyzeDocumentsForIssue(issue, uploadedFiles);
             const formattedEvidence = evidenceService.formatEvidence(rawEvidence);
-            const { decision, reason } = await decisionEngine.evaluateIssueDecision(issue, formattedEvidence);
+            const missing = issue.requiredDocuments.filter(type => !uploadedFiles.some(file => file.fileType === type));
+            missingRequiredEvidence ||= missing.length > 0;
+            trace('evidence.analysis.complete',{issueType:issue.issueType,count:formattedEvidence.length,missing});
+            const { decision, reason } = missing.length
+                ? { decision: "REVIEW_REQUIRED", reason: `Required evidence was not supplied: ${missing.join(", ")}. Review the order's Attachments and Typing Assistant.` }
+                : await decisionEngine.evaluateIssueDecision(issue, formattedEvidence);
+            trace('decision.complete',{issueType:issue.issueType,status:decision});
 
             processedIssues.push({
                 issueType: issue.issueType,
+                category: issue.category,
                 clientClaim: issue.claim,
                 requiredDocuments: issue.requiredDocuments,
                 evidence: formattedEvidence,
@@ -256,30 +217,16 @@ export async function analyzeDocumentsController(req, res) {
         }
 
         // Stage 7: Overall Decision Aggregation
-        const overallDecision = decisionEngine.calculateOverallDecision(processedIssues);
+        const overallDecision = missingRequiredEvidence ? "REVIEW_REQUIRED" : decisionEngine.calculateOverallDecision(processedIssues);
 
         const step2Payload = {
             analysisId: analysisId || `SF-${cleanOrderNumber}-${Date.now()}`,
             orderNumber: cleanOrderNumber,
-            commentAnalysis: {
-                selectedComment: {
-                    date: selectedComment.date,
-                    time: selectedComment.time,
-                    author: selectedComment.author,
-                    role: selectedComment.role,
-                    text: selectedComment.text
-                },
-                contextCommentsUsed: contextCommentsUsed.map(c => ({
-                    date: c.date,
-                    time: c.time,
-                    author: c.author,
-                    role: c.role,
-                    text: c.text,
-                    purpose: c.purpose
-                }))
-            },
+            commentAnalysis: route.commentAnalysis,
+            references: referenceAudit(route.reference),
             issues: processedIssues,
-            overallDecision
+            overallDecision,
+            status: overallDecision
         };
 
         const validatedResult = SearchFixStep2ResultSchema.parse(step2Payload);
@@ -288,9 +235,12 @@ export async function analyzeDocumentsController(req, res) {
         return res.status(200).json(validatedResult);
 
     } catch (error) {
-        console.error("[SearchFix Controller] Step 2 document analysis failed:", error);
+        trace('documents.failed',{code:error.code || 'DOCUMENT_ERROR'});
+        if (error.code === "GEMINI_REQUEST_FAILED") return res.status(502).json({ error: error.message });
+        if (error.status === 409) return res.status(409).json({ error: error.message });
         return res.status(500).json({ error: "SearchFix document analysis failed." });
     } finally {
+        trace('uploads.cleanup.start',{count:uploadedLocalPaths.length});
         for (const localPath of uploadedLocalPaths) {
             try {
                 if (fs.existsSync(localPath)) {
@@ -300,6 +250,7 @@ export async function analyzeDocumentsController(req, res) {
                 console.warn(`[SearchFix Controller] Temp file cleanup warning (${localPath}):`, err.message);
             }
         }
+        trace('uploads.cleanup.complete');
     }
 }
 

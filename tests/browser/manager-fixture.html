@@ -1,0 +1,11 @@
+<!doctype html><meta charset="utf-8"><title>Attachment Manager regression</title>
+<style>body{font:16px system-ui;margin:30px}td{padding:8px}pre{white-space:pre-wrap;background:#e8f5ec;padding:16px}</style>
+<h1>Attachment Manager · synthetic files</h1><p>Filename links use the supplied TitleVision structure. No live files or website handlers run.</p>
+<div id="fixture"><div id="tabs-attachments" aria-hidden="false"><table id="tblAttachments">
+<tbody id="aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee"><tr class="newrow"><td class="filenameCell"><a href="javascript:void(0);" onclick="openAttachment('aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee');this.style.color='purple';">999-123_Search Package.pdf</a><br><span>12.6 MB</span></td><td class="attTypeCell">MiscBundleDoc</td><td><input type="checkbox" checked onclick="changeShouldBundle(this)"></td></tr></tbody>
+<tbody id="bbbbbbbb-cccc-dddd-eeee-ffffffffffff"><tr class="newrow"><td class="filenameCell"><a href="javascript:void(0);" onclick="openAttachment('bbbbbbbb-cccc-dddd-eeee-ffffffffffff');this.style.color='purple';">999-123_Pacer.pdf</a></td><td class="attTypeCell">Pacer</td></tr></tbody>
+<tbody id="cccccccc-dddd-eeee-ffff-000000000000"><tr class="newrow"><td class="filenameCell"><a href="javascript:void(0);" onclick="openAttachment('cccccccc-dddd-eeee-ffff-000000000000');this.style.color='purple';">999-123_Checklist.xlsx</a></td></tr></tbody>
+<tbody id="aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee_edit" class="edit" style="display:none"><tr><td class="filenameCell"><input value="Search Package"><button onclick="saveEdit()">Save</button></td></tr></tbody>
+</table></div>
+<div id="tabs-shared-attachments" aria-hidden="true" style="display:none"><table id="tblSharedAttachments"><tbody id="dddddddd-eeee-ffff-0000-111111111111"><tr><td class="filenameCell"><a href="javascript:void(0);" onclick="openAttachment('dddddddd-eeee-ffff-0000-111111111111');this.style.color='purple';">999-123_Search Package.pdf</a></td></tr></tbody></table></div></div>
+<h2>Verification</h2><pre id="results">Running…</pre><script type="module" src="/tests/browser/manager-fixture.js"></script>

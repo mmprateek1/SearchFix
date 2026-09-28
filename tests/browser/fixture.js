@@ -1,4 +1,4 @@
-import { readOrderPage, readSupportingView } from "/extension/page-reader.js";
+import { readOrderPage, readSupportingView, openSupportingLink } from "/extension/page-reader.js";
 import { DEFAULT_SETTINGS, validateOrder } from "/extension/core.js";
 const results = [];
 const check = (name, condition) => {if(!condition) throw new Error(name); results.push(`PASS · ${name}`);};
@@ -17,6 +17,19 @@ try {
   check("TA fields are readable without editing",ta.text.includes("DO NOT ALTER EXISTING TA"));
   let rejected=false;try{readSupportingView("WRONG-ORDER","wrong","ta");}catch{rejected=true;}
   check("Rejects popup for a different order",rejected);
+  let prefixRejected=false;try{readSupportingView("SYNTHETIC","","ta");}catch{prefixRejected=true;}
+  check("Order number prefixes do not match another order",prefixRejected);
+  check("Attachments source link opens its own tab",openSupportingLink("attachments",location.href).url.includes("Attachments.aspx?PublicOrderId=synthetic"));
+  check("Typing Assistant source uses the TA link",openSupportingLink("ta",location.href).url.includes("TypingAssistant.aspx?PublicOrderId=synthetic"));
+  const sources=readSupportingView("SYNTHETIC-1","synthetic","attachments");
+  check("Popup reader includes only same-site PDFs",sources.attachments.length===1);
   check("DOM unchanged after all reader operations",before===document.getElementById("fixture").innerHTML);
+  const sourceLink=document.querySelector('a[href^="Attachments.aspx"]');
+  sourceLink.setAttribute("href","javascript:window.open('Attachments.aspx?PublicOrderId=synthetic','attachments')");
+  check("Literal popup URL is extracted without executing the handler",openSupportingLink("attachments",location.href).url.includes("Attachments.aspx?PublicOrderId=synthetic"));
+  sourceLink.setAttribute("href","javascript:claimOrUnlockTask()");
+  let unsafeRejected=false;try{openSupportingLink("attachments",location.href);}catch{unsafeRejected=true;}
+  check("Unknown website handlers are never executed",unsafeRejected);
+  sourceLink.setAttribute("href","Attachments.aspx?PublicOrderId=synthetic");
   document.getElementById("results").textContent=results.join("\n")+`\n\n${results.length}/${results.length} passed`;
 } catch(error) {document.getElementById("results").textContent=results.join("\n")+"\nFAIL · "+error.message; document.getElementById("results").style.background="#ffe0d8";}

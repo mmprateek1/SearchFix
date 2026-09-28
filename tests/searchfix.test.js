@@ -64,12 +64,12 @@ async function runRegressionDataTests() {
     let passed = 0;
 
     for (const order of sampleOrders) {
-        const { selectedComment, isInternalStatusExplanation } = commentSelectionService.selectSearchFixComment(order.comments);
+        const { selectedComment, isInternalStatusExplanation, ignoreReason } = commentSelectionService.selectSearchFixComment(order.comments);
         
         const authorMatch = selectedComment && selectedComment.author === order.expectedSelectedAuthor;
         const statusMatch = isInternalStatusExplanation === order.expectedIsInternalStatus;
 
-        if (authorMatch && statusMatch) {
+        if (authorMatch && statusMatch && Boolean(ignoreReason) === Boolean(order.expectedIgnored)) {
             console.log(`✓ ${order.id}: Author '${selectedComment.author}' matched. (InternalStatus: ${isInternalStatusExplanation})`);
             passed++;
         } else {

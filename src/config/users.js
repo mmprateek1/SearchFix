@@ -46,6 +46,9 @@ export function classifyUserRole(author) {
 
     const trimmed = author.trim();
 
+    if (isRVSIUser(trimmed)) return "CLIENT";
+    if (isADSSearchType(trimmed)) return "INTERNAL";
+
     for (const pattern of USER_CONFIG.systemPatterns) {
         if (trimmed.includes(pattern)) return "SYSTEM";
     }
@@ -64,4 +67,12 @@ export function classifyUserRole(author) {
     }
 
     return "CLIENT";
+}
+
+export function isADSSearchType(author = "") {
+    return /adssearchtype/i.test(author);
+}
+
+export function isRVSIUser(author = "") {
+    return /rvsi[-_\s]*outsource\b/i.test(author);
 }

@@ -53,3 +53,30 @@ test("attachment reader rejects cross-origin, stale, and non-PDF responses", asy
     assert.equal(atob((await readAttachment("https://tv.datatracetitle.com/a.pdf",location.href)).base64),"%PDF-1.4\ntest");
   } finally {globalThis.location = savedLocation; globalThis.fetch = savedFetch;}
 });
+
+test('PDF reader maps viewer navigation to the supplied authenticated PDF endpoint and reports failures safely', async()=>{
+  const originalLocation=globalThis.location, originalFetch=globalThis.fetch;
+  globalThis.location={href:'https://tv.datatracetitle.com/Orders/attachment/Manager/test',origin:'https://tv.datatracetitle.com'};
+  const id='aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee';
+  const viewer=`${location.origin}/AttachmentViewer.aspx?PublicAttachmentId=${id}`;
+  const requests=[];
+  globalThis.fetch=async(url,options)=>{
+    requests.push(url);assert.equal(url,`${location.origin}/attachment.ashp?publicAttachmentId=${id}`);
+    assert.equal(options.credentials,'same-origin');assert.equal(options.method,'GET');assert.equal(options.redirect,'error');
+    return new Response('%PDF-1.4\nsynthetic bytes');
+  };
+  try {
+    const result=await readAttachment(viewer,location.href);
+    assert.equal(atob(result.base64),'%PDF-1.4\nsynthetic bytes');
+    assert.equal(requests.length,1);
+    await assert.rejects(readAttachment(viewer+'&PublicAttachmentId='+id,location.href),/one valid file/);
+    assert.equal(requests.length,1);
+    for(const [response,expectedCode] of [[new Response('sign in',{status:401}),'PDF_HTTP_ERROR'],[new Response('<html>sign in</html>'),'PDF_CONTENT_INVALID'],[new Response('%PDF-x',{headers:{'content-length':String(21*1024*1024)}}),'PDF_SIZE_LIMIT']]) {
+      globalThis.fetch=async()=>response;
+      assert.equal((await readAttachment(viewer,location.href,true)).errorCode,expectedCode);
+    }
+    globalThis.fetch=async()=>{throw new TypeError('PRIVATE SESSION URL');};
+    const error=await readAttachment(viewer,location.href,true);
+    assert.equal(error.errorCode,'PDF_NETWORK_OR_REDIRECT');assert.doesNotMatch(JSON.stringify(error),/PRIVATE SESSION/);
+  } finally {globalThis.location=originalLocation;globalThis.fetch=originalFetch;}
+});

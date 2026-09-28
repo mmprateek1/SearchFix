@@ -8,7 +8,8 @@
     "start": "node src/server.js",
     "dev": "node --watch src/server.js",
     "test": "node --import dotenv/config --test tests/*.test.js",
-    "test:browser": "node tests/browser/server.js"
+    "test:browser": "node tests/browser/server.js",
+    "start:local": "node src/local.js"
   },
   "dependencies": {
     "@google/genai": "*",
@@ -29,5 +30,8 @@
     "ai"
   ],
   "author": "",
-  "license": "ISC"
+  "license": "ISC",
+  "engines": {
+    "node": ">=22 <27"
+  }
 }

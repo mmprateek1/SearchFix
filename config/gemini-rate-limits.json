@@ -1,0 +1,52 @@
+{
+  "safetyFactor": 0.8,
+  "models": {
+    "gemini-3.5-flash-lite": {
+      "rpm": 15,
+      "tpm": 250000,
+      "rpd": 500
+    },
+    "gemini-3.1-flash-lite": {
+      "rpm": 15,
+      "tpm": 250000,
+      "rpd": 500
+    },
+    "gemini-3.8-flash": {
+      "rpm": 5,
+      "tpm": 250000,
+      "rpd": 20
+    },
+    "gemini-3.7-flash": {
+      "rpm": 5,
+      "tpm": 250000,
+      "rpd": 20
+    },
+    "gemini-3.6-flash": {
+      "rpm": 5,
+      "tpm": 250000,
+      "rpd": 20
+    },
+    "gemini-3.5-flash": {
+      "rpm": 5,
+      "tpm": 250000,
+      "rpd": 20
+    },
+    "gemini-2.5-flash": {
+      "rpm": 5,
+      "tpm": 250000,
+      "rpd": 20
+    }
+  },
+  "initialDailyUsage": {
+    "date": "2026-09-28",
+    "requests": {
+      "gemini-3.5-flash-lite": 5,
+      "gemini-3.1-flash-lite": 0,
+      "gemini-3.8-flash": 0,
+      "gemini-3.7-flash": 1,
+      "gemini-3.6-flash": 0,
+      "gemini-3.5-flash": 15,
+      "gemini-2.5-flash": 0
+    }
+  }
+}

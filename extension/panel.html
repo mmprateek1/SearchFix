@@ -2,35 +2,24 @@
 <html lang="en">
 <head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>SearchFix Assistant</title><link rel="stylesheet" href="panel.css"></head>
 <body>
-  <header><div class="brand">SF<span>SearchFix</span></div><span class="badge">READ ONLY</span></header>
+  <header><div class="brand">SF<span>SearchFix</span></div><button id="toggleApiKey" class="primary" hidden aria-expanded="false" aria-controls="apiKeySection">Add Gemini API key</button></header>
   <main>
-    <p class="eyebrow">CLIENT COMMENT REVIEW</p><h1>Make the next step clear.</h1>
-    <p class="intro">Understand the request. Check the evidence. Review alongside Typing Assistant.</p>
-    <div class="actions"><button id="read" class="primary">Read current page</button><button id="home">Find SearchFix tasks</button></div>
-    <p id="status" role="status" aria-live="polite">Open DataTrace and click the extension to get started.</p>
-    <section id="tasksSection" hidden><h2>SearchFix tasks</h2><p class="hint">Open an order overview to read it without starting a task.</p><div id="tasks"></div></section>
-    <section id="orderSection" hidden>
-      <h2>Order overview</h2><label for="orderNumber">Order number</label><input id="orderNumber" autocomplete="off">
-      <p id="counts" class="hint"></p><p id="warnings" class="notice"></p>
-      <details><summary>Comments read from this order</summary><div id="comments"></div></details>
-      <p id="taStatus" class="hint"></p>
-      <label class="check"><input type="checkbox" id="reviewed">I checked that the relevant comment history is loaded.</label>
-      <p class="hint">Analyze sends these comments to your local SearchFix backend, which uses Google Gemini.</p>
-      <button id="analyze" class="primary">Explain client request</button>
+    <section id="apiKeySection" hidden>
+      <h2>Gemini API key</h2>
+      <form id="apiKeyForm">
+        <label for="apiKey">API key</label><input id="apiKey" type="password" autocomplete="off" spellcheck="false" placeholder="Paste your Gemini API key">
+        <p class="hint">“Use this key” saves your key immediately without contacting Gemini. It is used for comments and documents when you start analysis. Kept for this browser session only; never sent to DataTrace. Enter it again after restarting Chrome or reloading the extension.</p>
+        <div class="actions"><button id="saveApiKey" type="submit" class="primary">Use this key</button><button id="removeApiKey" type="button">Remove key</button></div>
+      </form>
+      <p id="apiKeyStatus" class="hint" role="status"></p>
     </section>
-    <section id="resultSection" hidden><div class="sectionHeading"><h2>Review for Typing Assistant</h2><button id="copy">Copy notes</button></div><p class="hint">Private extension output. Nothing is inserted into the website’s TA.</p><pre id="result"></pre></section>
-    <section id="documentsSection" hidden>
-      <h2>Check supporting files</h2><p id="required" class="hint"></p>
-      <p class="hint">Select only relevant PDFs and check each file type. Filename suggestions are not document verification.</p>
-      <div id="files"></div>
-      <label for="taText">TA text from this order (optional)</label><textarea id="taText" rows="6" placeholder="Paste the existing Typing Assistant text here. This does not change the website."></textarea>
-      <button id="findWindows">Find open TA / attachment windows</button><div id="windows"></div>
-      <p class="hint">Open the website’s existing popup yourself, then read it here. The extension does not unlock TA or execute popup actions.</p>
-      <label for="localFiles">Add PDFs downloaded from this order’s Attachments or TA</label><input id="localFiles" type="file" accept="application/pdf,.pdf" multiple>
-      <p class="hint">Up to 6 PDFs, 20 MB each, 40 MB total. Selected files go to the backend and Gemini for analysis.</p>
-      <button id="verify" class="primary">Analyze selected PDFs</button>
-    </section>
-    <details id="settings"><summary>Connection and page settings</summary><p class="hint">DataTrace comments and task discovery are configured. Override selectors only if the site layout changes.</p><form id="settingsForm"></form><button id="saveSettings">Save settings</button><button id="health">Check backend</button></details>
+    <p class="eyebrow">READ-ONLY ORDER REVIEW</p><h1>SearchFix orders</h1>
+    <p class="intro">Open the task queue, then scan to find the SearchFix orders on the page.</p>
+    <div class="actions"><button id="scan" class="primary">Scan the page</button></div>
+    <p id="status" role="status" aria-live="polite">Ready to scan. No orders have been read yet.</p>
+    <section id="tasksSection" hidden><div class="sectionHeading"><h2>SearchFix orders</h2><span id="orderCount" class="hint"></span></div><p class="hint">Load all desired queue rows before scanning. Open an order below to read its result. Keep this panel open during analysis.</p><div id="tasks"></div></section>
+    <div id="batchActions" class="batchActions" hidden><button id="stopBatch" hidden disabled>Stop after current order</button><button id="processAll" class="primary">Start the search fix</button></div>
+    <details id="activitySection" hidden><summary>Activity log</summary><p class="hint">Shows the steps completed and where processing failed. API keys and document contents are excluded. Only the latest 1,500 entries are kept while this panel is open.</p><button id="copyActivity">Copy activity log</button><pre id="activityLog" aria-live="off"></pre></details>
     <footer>Viewing only · No task claiming · No order changes</footer>
   </main><script type="module" src="panel.js"></script>
 </body></html>

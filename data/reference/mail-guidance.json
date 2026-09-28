@@ -1,0 +1,17 @@
+{
+  "version": "2026-09-28",
+  "source": "data.pdf",
+  "pagesReviewed": 18,
+  "categoryPages": [3, 4, 5, 6, 7],
+  "repeatedCategoryPages": [12, 13, 14, 15, 16],
+  "interpretation": "Historical category/outcome counts, not mandatory category-to-decision rules. Repeated forwarded tables are counted once. Some email text and rightmost summary columns are clipped in the supplied PDF.",
+  "nightSummary": {"accepted": 712, "disputed": 493, "total": 1205},
+  "septemberSnapshot": {"accepted": 66, "disputed": 61, "total": 127},
+  "examplesWithBothOutcomes": [
+    {"category": "Name Search Missed", "accepted": 102, "disputed": 51, "pages": [3]},
+    {"category": "Typing Requirement", "accepted": 87, "disputed": 17, "pages": [3, 4]},
+    {"category": "Missed Document", "accepted": 70, "disputed": 48, "pages": [4]},
+    {"category": "Document Request", "accepted": 31, "disputed": 65, "pages": [3, 4]}
+  ],
+  "categoryLabels": ["Name Search Missed", "Typing Requirement", "Missed Document", "Attorney", "pacer and patriot", "Document Request", "Vesting Name", "Comment", "Vender Management Requirement", "effective date", "TAX Error/Assessor Error", "PLAT MAP", "Chain of Title", "cost worksheet", "HOA Comment", "Cost Work Sheet", "parcel ID", "Legal Description", "property view report", "search package", "address discripency", "wrong document", "document missin", "Mailing List", "Abstractor", "document missing", "update report", "Patriot", "PA and Taxs", "VM Requirment", "lien Registry", "property address", "HOA Name", "Attorney Opinion", "document miss", "Protho Search", "Checklist", "Wrong Name Search", "wrong property search", "county changed", "Assessor", "parecer missed", "Protho", "propery view reprot", "Wrong Order Number", "court search", "Unofficial Copies", "document missed", "assesed value", "GI Index Document", "water mark copies", "recording date", "judgment search", "incorrect name", "lender name", "taxsnapshot", "Index Missing", "assingment chain", "assessed value", "Property View Report", "no Open mortage", "PI Index Document", "county change", "assingment", "TAX Snapshot", "index missed", "Incorrect Search Package", "zip code", "survey", "Torrens", "Uncategorized", "assignment chain", "City Discripency", "documents request", "coversheet", "Torrens Certificate", "maritial status", "tax warrant", "documet requriment", "Sunbiz", "GIS Map", "County Change", "no revision comment", "tax certification", "24 months chain", "HOA", "Judgment & Lien search", "24 Month Chain", "Address", "Check List", "Comments", "Copies request", "Chain Missmatch", "Court Search", "Deed Chain", "Document", "Name Search", "Pacer Search", "Probate Copy", "PUD Comment", "Typing", "Index", "Judgment", "Page Sequence", "Property Report", "THR report"]
+}

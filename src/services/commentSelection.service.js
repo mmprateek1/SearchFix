@@ -1,4 +1,4 @@
-import { classifyUserRole } from "../config/users.js";
+import { classifyUserRole, isADSSearchType } from "../config/users.js";
 import { deduplicateComments } from "../utils/duplicateDetector.js";
 
 /**
@@ -55,6 +55,14 @@ export class CommentSelectionService {
         for (let i = 0; i < sorted.length; i++) {
             const current = sorted[i];
             const textLower = current.text.toLowerCase();
+
+            // This author ends order processing, including suspend/logout entries.
+            // An older internal author does not override a newer selected client claim.
+            if (isADSSearchType(current.author)) {
+                return { selectedComment: current, contextCommentsUsed,
+                    isInternalStatusExplanation: false, allProcessedComments: sorted,
+                    ignoreReason: `Comment author ${current.author} is ADSSearchType; order ignored.` };
+            }
 
             const isSystem = current.role === "SYSTEM";
             const isSuspend = textLower.includes("suspend:") || textLower.includes("logged off");

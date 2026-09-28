@@ -1,5 +1,7 @@
 import { geminiService } from "./gemini.service.js";
 import { getDecisionSystemPrompt, getDecisionUserPrompt } from "../prompts/decision.prompt.js";
+import { referenceContext, referencePrompt } from "./reference.service.js";
+import { trace } from './trace.service.js';
 
 export class DecisionEngine {
     /**
@@ -22,10 +24,11 @@ export class DecisionEngine {
         }
 
         const systemPrompt = getDecisionSystemPrompt();
-        const userPrompt = getDecisionUserPrompt(issue.issueType, issue.claim, issue.requiredDocuments, evidence);
+        const userPrompt = getDecisionUserPrompt(issue.issueType, issue.claim, issue.requiredDocuments, evidence)
+            + referencePrompt(issue.reference || referenceContext(issue.claim, issue.category));
 
         try {
-            const rawResponse = await geminiService.generateJSON(systemPrompt, userPrompt);
+            const rawResponse = await geminiService.generateJSON(systemPrompt, userPrompt, "documents");
             const parsed = typeof rawResponse === "string" ? JSON.parse(rawResponse) : rawResponse;
 
             const decision = ["ACCEPTED", "DISPUTED", "REVIEW_REQUIRED"].includes(parsed.decision)
@@ -39,7 +42,7 @@ export class DecisionEngine {
                 reason
             };
         } catch (error) {
-            console.error(`[DecisionEngine] Error evaluating decision for issue '${issue.issueType}':`, error);
+            trace('decision.failed',{issueType:issue.issueType,code:error.code || 'DECISION_ERROR'});
             return {
                 decision: "REVIEW_REQUIRED",
                 reason: "Error occurred during claim vs evidence decision evaluation."

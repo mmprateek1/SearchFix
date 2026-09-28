@@ -1,0 +1,19 @@
+<!doctype html><meta charset="utf-8"><title>SearchFix popup checks</title>
+<style>body{font:16px system-ui;max-width:900px;margin:30px auto}pre{white-space:pre-wrap;background:#e8f5ec;padding:16px}textarea{width:90%;height:120px}</style>
+<h1>Read-only popup regression checks</h1><p>Synthetic data and the supplied navigation structure.</p>
+<div id="fixture">
+<div id="ctl00_ContentPlaceHolder1_OrderWorkflowDetails1_divOrderLinksDetails">
+<a id="ctl00_ContentPlaceHolder1_OrderWorkflowDetails1_lnkAttachments" onclick="return showAttachmentsV2();" href="javascript:__doPostBack('blocked','')">Attachments</a>
+<a id="ctl00_ContentPlaceHolder1_OrderWorkflowDetails1_lnkTypingAssistant" onclick="return showTypingAssistant();" href="javascript:__doPostBack('blocked','')">Typing Assistant</a>
+<span id="ctl00_ContentPlaceHolder1_OrderWorkflowDetails1_lblTALockedBy"></span>
+</div>
+<h2>TPS-AD-SYNTHETIC</h2><div id="source">
+<table><tr><th>Filename</th><th>Type</th></tr><tr><td><a href="/Orders/attachment/Download/synthetic">1280806404_Pacer.pdf</a></td><td>Pacer</td></tr><tr><td><a href="javascript:deleteFile()">Delete file</a></td><td><input type="checkbox" checked></td></tr></table>
+<select><option>Internal Comments</option></select><input value="2"><button>Save</button><button>Save and Close</button><button>Clear</button>
+<textarea id="report">--Internal Comments--
+EFFECTIVE DATE: 04/30/2026
+--Property Info--
+VESTING: Synthetic Owner
+--Deeds--
+Deed 1234</textarea></div></div>
+<h2>Results</h2><pre id="results">Running…</pre><script type="module" src="/tests/browser/popup-fixture.js"></script>
