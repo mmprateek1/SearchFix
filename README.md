@@ -1,4 +1,4 @@
-# SearchFix 1.4.7 — local development
+# SearchFix 1.5.0 — local development
 
 Start with [LOCAL_TESTING.md](LOCAL_TESTING.md) for the demo, local service, Chrome installation and testing steps. Read [REFERENCE_DATA_REVIEW.md](REFERENCE_DATA_REVIEW.md) for the detailed analysis of the supplied files.
 
@@ -15,7 +15,7 @@ The local launcher binds only to 127.0.0.1:3000. No server default key is used. 
 
 ## Reference support
 
-The backend consults the supplied consolidated workbook, September workbook and scanned email category guidance. After excluding missing comments, merging duplicates and separating ambiguous labels, 2,010 historical cases are eligible as examples. Another 108 pending clarifications are retained separately.
+The backend uses only the September 29 Consolidated SearchFix Report.xlsx. All 1,809 labeled rows were examined; 1,794 records remain eligible as examples after blank comments, duplicates and conflicting labels are excluded. All 53 named normalized categories are covered by the explicit issue catalogue. See [ISSUE_DOCUMENT_MAP.md](ISSUE_DOCUMENT_MAP.md) for all 59 issue types and their required evidence.
 
 Comment classification and final evidence comparison receive relevant examples and category guidance. Results include the business category and historical source-row references. This is reference-guided analysis, not fine-tuning. Historical corrections, counts and matching order IDs never substitute for current documents. The same category can produce Accepted or Disputed.
 
@@ -24,7 +24,8 @@ The original files remain unchanged. The prepared library is in `data/reference`
 ## Preserved behavior
 
 - Comments start with `gemini-3.5-flash-lite`; document analysis and evidence decisions start with `gemini-3.8-flash`. Both use the ordered fallback chains below.
-- The existing selected-comment rules remain: ADSSearchType is ignored; RVSI operational-only fee/status/ETA messages are ignored; mixed concrete complaints continue.
+- Selected internal-user comments, including ADSSearchType and ADSSP2, are ignored before AI calls. Fee-only approval requests, abstractor status/ETA-only updates and explicit no-revision requests finish Disputed without document analysis. Mixed substantive claims still need current evidence.
+- Unsupported claims return Review required with a manual-classification explanation; there is no catch-all issue or default document mapping.
 - Required PDFs come from the verified order's Attachments view. TA comes only from Typing Assistant text.
 - Missing/unreadable evidence leads to Review required and the queue continues.
 - No DataTrace task claiming, status changes, field edits, uploads, comment posting or TA unlocking.

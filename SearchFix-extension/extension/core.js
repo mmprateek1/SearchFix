@@ -1,5 +1,5 @@
 import { BACKEND_ORIGIN } from "./deployment.js";
-export const DOCUMENT_TYPES = ["SEARCH_PACKAGE", "DEED", "DOT", "TAX", "PA", "LEGAL_DESCRIPTION", "MAP", "LIEN", "PACER", "PATRIOT", "TYPED_REPORT", "COST_WORKSHEET", "THR", "INDEX"];
+export const DOCUMENT_TYPES = ["SEARCH_PACKAGE", "DEED", "DOT", "TAX", "PA", "LEGAL_DESCRIPTION", "MAP", "LIEN", "PACER", "PATRIOT", "TYPED_REPORT", "COST_WORKSHEET", "THR", "INDEX", "ATTORNEY_OPINION", "VENDOR_INSTRUCTIONS", "HOA_DOCUMENT", "MAILING_LIST", "PROPERTY_REPORT", "UPDATE_REPORT", "LIEN_REGISTRY", "COURT_SEARCH", "PROBATE", "SURVEY", "TORRENS", "COVER_SHEET", "CHECKLIST", "SUNBIZ", "ASSIGNMENT"];
 
 export const DEFAULT_SETTINGS = {
   backend: BACKEND_ORIGIN,
@@ -27,6 +27,19 @@ export function backendURL(value, configuredOrigin = BACKEND_ORIGIN) {
 export function guessDocumentType(name) {
   const words = name.toUpperCase().replace(/[^A-Z0-9]+/g, " ");
   const rules = [
+    [/\b(ATTORNEY(?: S)?(?: TITLE)? OPINION|AO|ATO)\b/, "ATTORNEY_OPINION"],
+    [/\b(VENDOR ?MANAGEMENT|VENDOR INSTRUCTIONS|VM|ORIGINAL ?REQUEST|SPECIAL REQUIREMENTS)\b/, "VENDOR_INSTRUCTIONS"],
+    [/\b(HOA|HOMEOWNERS? ASSOCIATION)\b/, "HOA_DOCUMENT"],
+    [/\bMAILING LIST\b/, "MAILING_LIST"],
+    [/\bPROPERTY (?:VIEW )?REPORT\b/, "PROPERTY_REPORT"],
+    [/\bUPDATE REPORT\b/, "UPDATE_REPORT"],
+    [/\bLIEN REGISTR[YI]\b/, "LIEN_REGISTRY"],
+    [/\b(PROTHO|COURT SEARCH|JUDGMENT SEARCH|JUDGEMENT SEARCH)\b/, "COURT_SEARCH"],
+    [/\b(PROBATE|SURROGATE|ESTATE SEARCH)\b/, "PROBATE"],
+    [/\bSURVEY\b/, "SURVEY"], [/\bTORRENS\b/, "TORRENS"],
+    [/\b(COVER ?SHEET|RUN ?SHEET)\b/, "COVER_SHEET"],
+    [/\bCHECK ?LIST\b/, "CHECKLIST"], [/\bSUNBIZ\b/, "SUNBIZ"],
+    [/\bASSIGNMENT\b/, "ASSIGNMENT"],
     [/\b(TYPED|REPORT TYPED|TYPING|TA)\b/, "TYPED_REPORT"],
     [/\b(PACER|BANKRUPTCY)\b/, "PACER"], [/\bPATRIOT\b/, "PATRIOT"],
     [/\b(THR|TRANSACTION HISTORY)\b/, "THR"], [/\b(DEED OF TRUST|DOT|MORTGAGE)\b/, "DOT"],
@@ -62,8 +75,6 @@ export function buildAssistantText(result) {
   if (selected) lines.push(`Comment reviewed (${selected.author || "Unknown"}):`, selected.text, "");
   if (decision === "IGNORED") {
     lines.push("Order ignored. No supporting documents were analyzed; processing continues with the next SearchFix order.");
-  } else if (selected?.role === "INTERNAL" && !result.issues?.length) {
-    lines.push("The latest selected comment is an internal status update. The backend labels this DISPUTED under its existing routing rule. This is not document verification or proof that the client concern is resolved.", "", "Next step: review the earlier client request and the pending internal follow-up.");
   } else {
     for (const [index, issue] of (result.issues || []).entries()) {
       lines.push(`${index + 1}. What the client needs: ${issue.claim || issue.clientClaim}`);

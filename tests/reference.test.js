@@ -12,21 +12,21 @@ import { guessDocumentType } from '../extension/core.js';
 
 const history = JSON.parse(fs.readFileSync(new URL('../data/reference/history.json', import.meta.url)));
 test('reference import reconciles rows, deduplicates and separates pending/conflicting labels', () => {
-  assert.equal(history.labeledRows,2028); assert.equal(history.uniqueCases,2024);
-  assert.equal(history.duplicateRowsMerged,4); assert.equal(history.skipped.length,5);
-  assert.equal(history.pendingRows,108); assert.equal(history.conflictingCases,14);
-  assert.equal(history.cases.filter(x=>!x.conflictingLabels).length,2010);
+  assert.equal(history.labeledRows,1808); assert.equal(history.uniqueCases,1804);
+  assert.equal(history.duplicateRowsMerged,4); assert.equal(history.skipped.length,1);
+  assert.equal(history.pendingRows,0); assert.equal(history.conflictingCases,10);
+  assert.equal(history.cases.filter(x=>!x.conflictingLabels).length,1794);
   assert.ok(history.pending.every(x=>!x.outcome));
   assert.ok(history.cases.every(x=>x.sources.every(s=>s.row>1 && s.file && s.sheet)));
 });
-test('retrieval consults both workbooks and PDF but excludes contradictory labels', () => {
+test('retrieval consults only the consolidated workbook but excludes contradictory labels', () => {
   const ref = referenceContext('Please provide missing pacer and patriot name searches for the borrower');
-  assert.equal(ref.library.sources.length,2); assert.equal(ref.mail.source,'data.pdf');
+  assert.deepEqual(ref.library.sources,['Consolidated SearchFix Report.xlsx']); assert.equal(ref.mail,undefined);
   assert.ok(ref.examples.length>0 && ref.examples.length<=6);
-  assert.equal(new Set(ref.examples.flatMap(x=>x.sources.map(s=>s.file))).size,2);
+  assert.equal(new Set(ref.examples.flatMap(x=>x.sources.map(s=>s.file))).size,1);
   assert.ok(ref.examples.every(x=>!history.cases.find(r=>r.id===x.id).conflictingLabels));
   assert.match(ref.rule,/never instructions or evidence/);
-  assert.ok(ref.mail.examplesWithBothOutcomes.every(x=>x.accepted>0 && x.disputed>0));
+  assert.ok(ref.categoryStatistics.some(x=>x.ACCEPTED>0 && x.DISPUTED>0));
   const unknown = referenceContext('zzzzzzqqqqq');
   assert.equal(unknown.examples.length,0);
   assert.match(referenceAudit(unknown).note,/no sufficiently related/);
@@ -39,7 +39,7 @@ test('category aliases retain original decision independence and indexed documen
   const names = {'Cost Work Sheet':'COST_WORKSHEET',Pacer:'PACER',Patriot:'PATRIOT','Search Package':'SEARCH_PACKAGE',THR:'THR','Index Snapshot':'INDEX'};
   for (const prefix of ['1280806404','987654321']) for (const [name,type] of Object.entries(names)) assert.equal(guessDocumentType(`${prefix}_${name}.pdf`),type);
 });
-test('both AI stages receive history and email guidance; history cannot replace missing evidence', async () => {
+test('both AI stages receive consolidated history; history cannot replace missing evidence', async () => {
   const saved=geminiService.generateJSON; const calls=[];
   geminiService.generateJSON=async(system,prompt,stage)=>{
     calls.push({system,prompt,stage});
@@ -56,8 +56,7 @@ test('both AI stages receive history and email guidance; history cannot replace 
     assert.equal(calls.length,2);
     for (const call of calls) {
       assert.match(call.prompt,/Consolidated SearchFix Report.xlsx/);
-      assert.match(call.prompt,/September Day Shift.ods/);
-      assert.match(call.prompt,/data.pdf/);
+      assert.match(call.prompt,/categoryStatistics/);
       assert.match(call.prompt,/historicalResolution/);
     }
     assert.equal(calls[1].stage,'documents');
@@ -65,5 +64,5 @@ test('both AI stages receive history and email guidance; history cannot replace 
 });
 test('reference citations and business categories survive the response schema',()=>{
   const parsed=SearchFixStep1ResultSchema.parse({analysisId:'test',orderNumber:'TEST',commentAnalysis:{selectedComment:{role:'CLIENT',text:'Missing name search'},contextCommentsUsed:[]},issues:[{issueType:'NAME_SEARCH_MISSING',category:'Name Search',claim:'Missing name search',requiredFiles:[]}],status:'AWAITING_DOCUMENTS',references:referenceAudit(referenceContext('pacer patriot borrower names'))});
-  assert.equal(parsed.references.sources.length,3); assert.equal(parsed.issues[0].category,'Name Search');
+  assert.equal(parsed.references.sources.length,1); assert.equal(parsed.issues[0].category,'Name Search');
 });

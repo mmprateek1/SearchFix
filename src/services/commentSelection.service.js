@@ -1,4 +1,4 @@
-import { classifyUserRole, isADSSearchType } from "../config/users.js";
+import { classifyUserRole } from "../config/users.js";
 import { deduplicateComments } from "../utils/duplicateDetector.js";
 
 /**
@@ -17,7 +17,7 @@ const VAGUE_PATTERNS = [
 export class CommentSelectionService {
     /**
      * Traverses SearchFix comments chronologically (most recent first) according to
-     * the Internal vs Client decision tree rules from the 22-Sep dataset.
+     * the internal-user ignore and client-context rules.
      * 
      * @param {Array<object>} rawComments Array of comment objects
      * @returns {object} { selectedComment, contextCommentsUsed, isInternalStatusExplanation, allProcessedComments }
@@ -58,35 +58,14 @@ export class CommentSelectionService {
 
             // This author ends order processing, including suspend/logout entries.
             // An older internal author does not override a newer selected client claim.
-            if (isADSSearchType(current.author)) {
+            if (current.role === "INTERNAL") {
                 return { selectedComment: current, contextCommentsUsed,
                     isInternalStatusExplanation: false, allProcessedComments: sorted,
-                    ignoreReason: `Comment author ${current.author} is ADSSearchType; order ignored.` };
+                    ignoreReason: `Comment author ${current.author} is an internal user; order ignored without AI or document analysis.` };
             }
 
             const isSystem = current.role === "SYSTEM";
             const isSuspend = textLower.includes("suspend:") || textLower.includes("logged off");
-
-            // CASE 1: Recent comment by INTERNAL USER
-            if (current.role === "INTERNAL") {
-                if (isSuspend) {
-                    // Sub-case 1B: Internal SUSPEND / Logout -> Ignore & trace back
-                    contextCommentsUsed.push({
-                        date: current.date,
-                        time: current.time,
-                        author: current.author,
-                        role: current.role,
-                        text: current.text,
-                        purpose: "internal_suspend_context"
-                    });
-                    continue;
-                } else {
-                    // Sub-case 1A: Valid meaningful internal comment explaining status
-                    selectedComment = current;
-                    isInternalStatusExplanation = true;
-                    break;
-                }
-            }
 
             // CASE 2: Recent comment by CLIENT USER or SYSTEM
             if (isSystem || isSuspend) {
@@ -125,9 +104,6 @@ export class CommentSelectionService {
         // Fallback if all comments were system/suspend
         if (!selectedComment && sorted.length > 0) {
             selectedComment = sorted[0];
-            if (selectedComment.role === "INTERNAL") {
-                isInternalStatusExplanation = true;
-            }
         }
 
         return {

@@ -1,4 +1,4 @@
-# SearchFix 1.4.7: run and test locally
+# SearchFix 1.5.0: run and test locally
 
 Both parts run on your PC: the Chrome extension reads DataTrace and a local service calls Gemini. Internet is still needed for DataTrace and Gemini. The website remains read-only.
 
@@ -18,7 +18,7 @@ Both parts run on your PC: the Chrome extension reads DataTrace and a local serv
 
 1. Install Node.js 22 or another version supported by this project (22 through 26). In the project folder, run `npm ci` once to install dependencies. If dependencies are already installed, skip this step.
 2. Double-click `START-SearchFix.cmd`. Keep this window open. The service is available only on this PC at `http://127.0.0.1:3000`.
-3. Open `http://127.0.0.1:3000/health` in Chrome. It should show version `1.4.7` and status `OK`. This checks the local service, not Gemini permissions.
+3. Open `http://127.0.0.1:3000/health` in Chrome. It should show version `1.5.0` and status `OK`. This checks the local service, not Gemini permissions.
 4. Open `chrome://extensions`, enable Developer mode, click **Load unpacked**, and select the project's `extension` folder. If SearchFix is already installed from this folder, click **Reload** instead.
 5. Sign in to DataTrace normally. Open **All Active and Available Tasks** and load the queue rows you want checked.
 6. Open SearchFix. Click **Scan the page**. Scanning does not call Gemini or examine each order yet.
@@ -33,9 +33,9 @@ Both parts run on your PC: the Chrome extension reads DataTrace and a local serv
 | Pending | Gray | Not examined yet |
 | Processing | Blue | This order is being examined |
 | Accepted | Green | Current evidence supports the reported error |
-| Disputed | Red | Current evidence contradicts the reported error, or the preserved internal routing rule applies |
-| Ignored | Muted gray | An existing ignore rule applies |
-| Review required | Amber | Required evidence is missing, unreadable, inconclusive, or processing failed |
+| Disputed | Red | Evidence contradicts the claim, or a supported fee/status/no-revision-only comment needs no evidence |
+| Ignored | Gray | Selected internal-user comment (including ADSSP2/ADSSearchType), or a supported generic operational ignore rule |
+| Review required | Amber | Unmatched claim, incomplete or inconclusive evidence, or processing failure |
 
 Historical records guide interpretation but do not substitute for current documents. Some previous records say a file was added later; this never means the extension added a file or corrected the current order.
 
@@ -57,7 +57,7 @@ The existing limits remain: loaded queue/comment rows only, no automatic paginat
 - **No orders found:** open the task queue, load the desired rows, then scan again. The extension does not claim work or activate SearchFix tasks.
 - **npm launcher error:** use a working Node.js installation with npm. Tests and an already-installed service can be run with the provided CMD files, which call Node directly.
 
-The backend keeps the reference data locally. During real analysis, it sends relevant historical examples and the PDF category guidance with the current request to Gemini. It does not upload the full workbooks or the email PDF for each order, and neither original file is modified.
+The backend keeps only the consolidated XLSX reference library locally. During analysis, it sends relevant historical examples and category counts with the current request to Gemini. It does not upload the whole workbook for each order or modify the original. See ISSUE_DOCUMENT_MAP.md and REFERENCE_DATA_REVIEW.md for the catalogue and statistics.
 
 ## Attachment/TA troubleshooting in 1.4.2
 
@@ -67,7 +67,7 @@ After scanning, expand **Activity log** below the order list. It shows navigatio
 
 The backend terminal now shows structured events with `requestId`. The extension's `api.response` entry shows the same request ID, allowing you to find its backend stages: comment selection, reference matching, classification, file preparation, Gemini calls/retries, evidence extraction, decisions, and cleanup. Browser-side source failures happen before evidence reaches the backend, so inspect the extension log as well as the terminal.
 
-To apply this update, stop the old backend window and double-click START-SearchFix.cmd. Reload SearchFix from `brave://extensions` (Brave) or `chrome://extensions` (Chrome). Verify version 1.4.7. Open DataTrace, scan, enter your key again, and start a small queue. If an order still requires review, copy both its review notes and Activity log. Unsupported file-download handlers, login redirects, and unavailable/locked documents still require review rather than an invented result.
+To apply this update, stop the old backend window and double-click START-SearchFix.cmd. Reload SearchFix from `brave://extensions` (Brave) or `chrome://extensions` (Chrome). Verify version 1.5.0. Open DataTrace, scan, enter your key again, and start a small queue. If an order still requires review, copy both its review notes and Activity log. Unsupported file-download handlers, login redirects, and unavailable/locked documents still require review rather than an invented result.
 
 Additional local browser check: while PREVIEW-SearchFix.cmd is running, open `http://127.0.0.1:4173/tests/browser/popup-fixture.html`. It reproduces the supplied navigation structure with synthetic data. No production order is accessed.
 
@@ -75,7 +75,7 @@ Additional local browser check: while PREVIEW-SearchFix.cmd is running, open `ht
 
 After each order, extension processing steps are copied automatically to the backend terminal as `extension.activity` entries. The `stage` identifies the browser step, and `client` contains counts, selected document types, or a status. You can now send the START-SearchFix.cmd output to diagnose both browser collection and backend analysis. If the backend connection is unavailable, the extension still retains its Activity log and the order result is preserved.
 
-Restart the backend and reload the extension before the next run; use version 1.4.7 for this update. A Gemini 503 causes a switch to the next candidate; the final candidate has up to three attempts with backoff. Key saving no longer verifies model access. Any provider error is reported during analysis. Missing files still require review.
+Restart the backend and reload the extension before the next run; use version 1.5.0 for this update. A Gemini 503 causes a switch to the next candidate; the final candidate has up to three attempts with backoff. Key saving no longer verifies model access. Any provider error is reported during analysis. Missing files still require review.
 
 ## Filename-link fix in 1.4.3
 
@@ -97,6 +97,10 @@ Restart START-SearchFix.cmd and reload the extension to apply this update. The c
 
 The supplied account limits now apply automatically. Read [RATE_LIMITS.md](RATE_LIMITS.md) for the configured values and counting policy. SearchFix checks remaining requests and input tokens before generation, switches to an eligible fallback, and preserves usage across service restarts. A model may be skipped without contacting Google. The optional legacy key-test endpoint consumes budget if explicitly called; the extension never calls it. If every model is full, retry once its window clears; daily limits reset at midnight Pacific. Other apps or separate backend installations are outside this local tracker.
 
-## Immediate key saving in 1.4.7
+## Immediate key saving in 1.5.0
 
 Use this key saves the supplied key in browser-session storage immediately, with no Gemini verification request. Start also skips verification and begins the real order workflow. Basic local input/HTTP-header format checks remain; actual authentication errors appear only when analysis calls Gemini. Closing and reopening the panel keeps the key for the same browser session. Restarting the browser or reloading the extension requires entry again.
+
+## Check the 1.5.0 workbook routing update
+
+Restart the service and reload the extension. Compare a small queue with the search team: an ADSSP2 comment should finish Ignored without any Gemini call; a fee-only request or abstractor ETA-only message should finish Disputed after comment classification without attachment downloads; an attorney-opinion error should request its mapped evidence. A mixed fee request and missing-deed complaint must still investigate the deed. An unmatched claim must show Review required and a manual-classification explanation.

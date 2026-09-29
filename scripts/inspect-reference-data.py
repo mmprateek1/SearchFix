@@ -1,44 +1,40 @@
-"""Read source spreadsheets/PDF without modifying them; save audit intermediates."""
-import json, zipfile, collections, hashlib
+"""Read only the supplied consolidated XLSX; never modify the source workbook."""
+import collections
+import hashlib
+import json
+import sys
 from pathlib import Path
-import xml.etree.ElementTree as ET
 import openpyxl
-from pypdf import PdfReader
 
 ROOT = Path(__file__).resolve().parents[1]
 OUT = ROOT / 'tmp' / 'reference-review'
 OUT.mkdir(parents=True, exist_ok=True)
-base = Path(r'C:\Users\M M PRATEEK\Desktop\searchfix notes')
-xlsx = base / 'fwsearchfixcompletion' / 'Consolidated SearchFix Report.xlsx'
-ods = base / '28th sept monday' / 'SearchFix - Report - September Day Shift.ods'
-pdf = base / '28th sept monday' / 'data.pdf'
+source = Path(sys.argv[1]) if len(sys.argv) > 1 else Path(r'C:\Users\M M PRATEEK\Desktop\searchfix notes\29th sept tuesday\Consolidated SearchFix Report.xlsx')
 books = []
-wb = openpyxl.load_workbook(xlsx, read_only=True, data_only=True)
-for ws in wb:
-    rows = [{'row': i, 'cells': [str(c) if c is not None else '' for c in row]} for i, row in enumerate(ws.iter_rows(values_only=True), 1) if any(c is not None for c in row)]
-    books.append({'file': xlsx.name, 'sheet': ws.title, 'rows': rows})
-wb.close()
-ns = {'t': 'urn:oasis:names:tc:opendocument:xmlns:table:1.0', 'x': 'urn:oasis:names:tc:opendocument:xmlns:text:1.0'}
-with zipfile.ZipFile(ods) as archive:
-    root = ET.fromstring(archive.read('content.xml'))
-    for table in root.findall('.//t:table', ns):
-        rows = []; rownum = 1
-        for row in table.findall('t:table-row', ns):
-            vals = []
-            for cell in row:
-                val = '\n'.join(''.join(p.itertext()) for p in cell.findall('x:p', ns))
-                repeat = int(cell.get('{%s}number-columns-repeated' % ns['t'], '1'))
-                if repeat < 1000: vals.extend([val] * repeat)
-            repeat = int(row.get('{%s}number-rows-repeated' % ns['t'], '1'))
-            if any(vals):
-                for offset in range(min(repeat,10000)): rows.append({'row': rownum+offset, 'cells': vals})
-            rownum += repeat
-        books.append({'file': ods.name, 'sheet': table.get('{%s}name' % ns['t']), 'rows': rows})
-(OUT/'workbooks.json').write_text(json.dumps(books, ensure_ascii=False, indent=2), encoding='utf8')
-reader = PdfReader(pdf)
-pages = [{'page': i, 'text': p.extract_text() or ''} for i,p in enumerate(reader.pages,1)]
-(OUT/'mail.json').write_text(json.dumps(pages, ensure_ascii=False, indent=2), encoding='utf8')
+workbook = openpyxl.load_workbook(source, read_only=True, data_only=True)
+for sheet in workbook:
+    rows = [{'row': i, 'cells': [str(cell) if cell is not None else '' for cell in values]}
+            for i, values in enumerate(sheet.iter_rows(values_only=True), 1) if any(cell is not None for cell in values)]
+    books.append({'file': source.name, 'sheet': sheet.title, 'rows': rows})
+workbook.close()
+(OUT / 'workbooks.json').write_text(json.dumps(books, ensure_ascii=False, indent=2), encoding='utf8')
+(OUT / 'source.json').write_text(json.dumps({'file': source.name, 'sha256': hashlib.sha256(source.read_bytes()).hexdigest()}, indent=2), encoding='utf8')
 for book in books:
-    print(json.dumps({'file':book['file'], 'sheet':book['sheet'], 'nonemptyRows':len(book['rows']), 'firstRows':book['rows'][:3]}, ensure_ascii=True))
-print('PDF PAGES', len(pages))
-for page in pages: print('PAGE', page['page'], page['text'])
+    print(book['sheet'], 'populated rows:', len(book['rows']))
+    if book['sheet'] != 'Consolidated SearchFix':
+        print(json.dumps(book['rows'], ensure_ascii=True))
+        continue
+    categories = {}
+    for row in book['rows'][1:]:
+        cells = row['cells']
+        if not cells[0].strip():
+            continue
+        category = cells[4].strip()
+        item = categories.setdefault(category, {'outcomes': collections.Counter(), 'wanted': collections.Counter(), 'examples': []})
+        item['outcomes'][cells[3].strip()] += 1
+        item['wanted'][cells[7].strip()] += 1
+        if len(item['examples']) < 3:
+            item['examples'].append({'row': row['row'], 'comment': cells[1], 'resolution': cells[2], 'status': cells[3]})
+    (OUT / 'category-analysis.json').write_text(json.dumps(categories, ensure_ascii=False, indent=2), encoding='utf8')
+    for category, item in sorted(categories.items()):
+        print(json.dumps({'category': category, 'outcomes': item['outcomes'], 'wanted': item['wanted']}, ensure_ascii=True))

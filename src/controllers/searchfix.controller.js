@@ -25,25 +25,35 @@ async function routeComments(comments) {
     trace('references.selected',{count:reference.examples.length});
     if (selection.ignoreReason) return { commentAnalysis, reference, terminal: "IGNORED", reason: selection.ignoreReason };
     if (selection.isInternalStatusExplanation) return {
-        commentAnalysis, reference, terminal: "DISPUTED",
-        reason: "Internal status update under the existing non-ADSSearchType routing rule; not document verification."
+        commentAnalysis, reference, terminal: "IGNORED",
+        reason: "Internal-user comment; order ignored without document analysis."
     };
     const classification = await issueClassificationService.analyzeComment(selection.selectedComment, selection.contextCommentsUsed);
     trace('comments.classified',{count:classification.issues.length});
     if (classification.ignoreReason) return { commentAnalysis, reference: classification.reference || reference, terminal: "IGNORED", reason: classification.ignoreReason };
-    return { commentAnalysis, reference: classification.reference || reference, issues: documentSelectionService.selectRequiredDocuments(classification.issues) };
+    if (classification.reviewReason) return { commentAnalysis, reference: classification.reference || reference, terminal: "REVIEW_REQUIRED", reason: classification.reviewReason };
+    const issues = documentSelectionService.selectRequiredDocuments(classification.issues);
+    if (issues.length && issues.every(issue => issue.decision === 'DISPUTED')) return {
+        commentAnalysis, reference: classification.reference || reference, issues, terminal: 'DISPUTED',
+        reason: issues.map(issue=>issue.reason).join(' ')
+    };
+    return { commentAnalysis, reference: classification.reference || reference, issues };
 }
 
 function terminalPayload(route, orderNumber, analysisId) {
-    return { analysisId, orderNumber, commentAnalysis: route.commentAnalysis, issues: [],
+    return { analysisId, orderNumber, commentAnalysis: route.commentAnalysis, issues: (route.issues || []).map(issue=>({
+        issueType:issue.issueType, category:issue.category, claim:issue.claim, clientClaim:issue.claim,
+        decision:issue.decision, reason:issue.reason, requiredFiles:[], requiredDocuments:[], evidence:[]
+    })),
         status: route.terminal, overallDecision: route.terminal, reason: route.reason, references: referenceAudit(route.reference) };
 }
 
 /**
  * STEP 1 ENDPOINT CONTROLLER:
  * Receives order comments from Chrome Extension, executes the Internal vs Client decision tree.
- * - ADSSearchType and RVSI operational updates return IGNORED.
- * - Other internal status updates retain their existing DISPUTED routing.
+ * - Internal authors including ADSSearchType and ADSSP2 return IGNORED before AI.
+ * - Explicit fee/status-only requests return DISPUTED before evidence collection.
+ * - Unmatched claims return REVIEW_REQUIRED without arbitrary document mappings.
  * - If Client Complaint -> returns required document list with status: "AWAITING_DOCUMENTS".
  */
 export async function analyzeCommentsController(req, res) {
@@ -74,6 +84,8 @@ export async function analyzeCommentsController(req, res) {
             issueType: issue.issueType,
             category: issue.category,
             claim: issue.claim,
+            decision: issue.decision,
+            reason: issue.reason,
             requiredFiles: issue.requiredDocuments.map(docType => ({
                 fileType: docType,
                 reason: `Required to investigate ${issue.issueType.toLowerCase().replace(/_/g, " ")} claim.`
@@ -194,6 +206,11 @@ export async function analyzeDocumentsController(req, res) {
 
         let missingRequiredEvidence = false;
         for (const issue of issuesWithDocs) {
+            if (issue.decision) {
+                processedIssues.push({issueType:issue.issueType, category:issue.category, clientClaim:issue.claim,
+                    requiredDocuments:[], evidence:[], decision:issue.decision, reason:issue.reason});
+                continue;
+            }
             trace('evidence.analysis.start',{issueType:issue.issueType,required:issue.requiredDocuments});
             const rawEvidence = await documentAnalysisService.analyzeDocumentsForIssue(issue, uploadedFiles);
             const formattedEvidence = evidenceService.formatEvidence(rawEvidence);

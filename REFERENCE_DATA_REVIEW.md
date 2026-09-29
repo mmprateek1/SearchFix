@@ -1,142 +1,103 @@
-# Review of the supplied SearchFix reference data
+# Consolidated workbook review
 
-Reviewed September 28, 2026. All workbook sheets were read and all 18 pages of the scanned email PDF were visually inspected. The original files were not edited. This report describes reference material, not measured model accuracy.
+Reviewed September 29, 2026. Only Consolidated SearchFix Report.xlsx supplied in the 29th September folder is used. Both populated sheets were read. The original workbook was not changed. Its SHA-256 is a885feaac422a18d4dc4b9e9d73fcbf776c88044ac50b7d317de233b4a5d6a76.
 
-## Source coverage and reconciliation
+## Coverage
 
-| Source | Findings |
-| --- | --- |
-| Consolidated SearchFix Report.xlsx, Consolidated SearchFix!A2:H1810 | 1,809 labeled rows: 1,076 Accepted and 733 Disputed. The Status Summary agrees (Wanted 1,076; Unwanted 733). Error Status is the outcome used by the importer. |
-| SearchFix - Report - September Day Shift.ods, Searchfix rows 2–225 | 224 labeled rows: 123 Accepted and 101 Dispute. Sheet1's totals agree. Another 187 rows contain serial numbers without orders and are excluded. |
-| Same ODS, Clarification rows 2–109 | 108 pending clarification entries with no final Accepted/Disputed label; retained separately as context, not assigned a final outcome. Five empty template rows are excluded. |
-| data.pdf, pages 3–7 | Historical category tables: night summary 712 Accepted / 493 Dispute; September snapshot 66 Accepted / 61 Not Accepted. These are different snapshots and are not added to the workbook rows. |
-| data.pdf, pages 12–16 | Repeated forwarded copies of those category tables; not counted again. Other pages contain email discussion/signatures/attachment listings. Some rightmost email text/summary columns are clipped in the supplied PDF. |
+Consolidated SearchFix!A2:H1810 contains 1,809 labeled entries: 1,076 Accepted and 733 Disputed. Status Summary agrees (Wanted 1,076; Unwanted 733). There is no date column; the rows alone do not establish their date coverage.
 
-The email describes the consolidated data as the previous three months. The consolidated detail sheet has no Date column, so its exact date coverage cannot be independently reconstructed from those rows. The September workbook provides dated rows. Old snapshots in the PDF should not be expected to equal the later workbook totals.
+One row has no comment, leaving 1808 usable input rows. 4 exact duplicates are merged, preserving their source row locations. 1804 distinct records remain; 10 have conflicting outcomes for the same order/comment and are excluded from retrieval. 1794 records are eligible as examples. Spelling/case variants are normalized without changing source labels or recorded outcomes.
 
-## Data preparation
+## Decisions and limitations
 
-- 2,033 labeled input rows across the two detail sheets.
-- 5 rows have no usable Search fix comments and are excluded from similarity matching.
-- 2028 comment-bearing labeled rows remain.
-- 4 exact duplicate records are merged while retaining all source locations.
-- 2024 distinct reference records remain, covering 1829 different order identifiers. Multiple records can belong to the same order.
-- 14 records share an order/comment with different outcomes. They may represent different issues or revisions; the supplied data does not settle that ambiguity. They are retained for audit but excluded from automatic examples.
-- 2010 unambiguous reference records are eligible for retrieval: 1188 Accepted and 822 Disputed.
-- Spelling/case variants are grouped into 59 business categories, preserving the original category on each record.
-- 41 normalized categories contain both outcomes. Category alone cannot establish a decision.
+Abstractor has 19 Disputed and 11 Accepted entries (63.3% Disputed). Accepted examples include wrong book/page references and attorney-opinion errors. Therefore an Abstractor category alone cannot justify skipping evidence. No separate Fee Approval category exists in this workbook; the fee-only rule comes from the user's requested workflow, not a measured fee-approval success rate.
 
-## What the PDF establishes
+The comment model receives the category catalogue, eligible category counts, and up to six relevant historical examples. The decision model receives those references alongside current evidence. These are reference-guided prompts, not fine-tuning. Historical response text never proves a current order was corrected. Counts describe the sample; they are not confidence scores or guaranteed future probabilities.
 
-The PDF is a category/outcome summary, not a written rule saying each category must always have one status. Name Search Missed appears with 102 Accepted and 51 Dispute; Typing Requirement with 87 and 17; Missed Document with 70 and 48; Document Request with 31 and 65. The reference guidance records this distinction, the visible category vocabulary, both snapshot totals, page locations, and the duplicated-table caveat.
+Internal authors, including ADSSearchType and ADSSP2, are ignored before any AI call. Explicit fee-only approvals, abstractor status/ETA-only updates and explicit no-revision requests can finish Disputed without downloading documents. Mixed comments still send substantive claims for evidence checks. Unmatched or ambiguous claims finish Review required with an explanation and no arbitrary document request. Missing, unreadable or inconclusive required evidence also needs review.
 
-## How the extension uses the data
+## Category outcomes
 
-Every valid comment route consults the local reference library and email guidance. Existing ignore/internal rules retain their precedence. For comments requiring analysis, the backend searches the combined eligible examples and sends up to six relevant cases to the comment and decision models, including source file, sheet, row, category, outcome, and historical response. Relevant examples from both workbooks and both outcomes are included where available. Up to two related pending clarification entries can be included, clearly marked as lacking a final outcome.
+Raw counts below include all 1,809 labeled rows, before removing the blank comment, duplicates or conflicting records. Model prompts use the eligible counts instead. Even a 100% fraction from one or two examples is not a reliable general decision rule.
 
-The result includes a business category alongside the existing issue type, and a References consulted section with retrieved row locations. If nothing sufficiently related is found, it says so; the model still receives the category catalogue and PDF guidance. Historical source counts are never treated as votes or confidence scores.
+| Category | Accepted | Disputed | Historical Disputed share |
+| --- | ---: | ---: | ---: |
+| 24 Month Chain | 0 | 1 | 100.0% |
+| Abstractor | 11 | 19 | 63.3% |
+| Abstractor / Typing | 1 | 0 | 0.0% |
+| Address | 9 | 20 | 69.0% |
+| Assignment Chain | 2 | 6 | 75.0% |
+| Attorney Opinion | 73 | 11 | 13.1% |
+| Chain of Title | 19 | 40 | 67.8% |
+| Checklist | 3 | 1 | 25.0% |
+| Comment | 55 | 22 | 28.6% |
+| Cost Work Sheet | 34 | 8 | 19.0% |
+| County Change | 1 | 5 | 83.3% |
+| Court Search | 3 | 11 | 78.6% |
+| Cover Sheet | 0 | 1 | 100.0% |
+| Document | 115 | 81 | 41.3% |
+| Document Request | 47 | 96 | 67.1% |
+| Effective Date | 39 | 42 | 51.9% |
+| Effective Date / Typing | 1 | 0 | 0.0% |
+| GIS Map | 0 | 1 | 100.0% |
+| HOA | 16 | 4 | 20.0% |
+| Index | 15 | 10 | 40.0% |
+| Judgment | 1 | 2 | 66.7% |
+| Legal Description | 17 | 30 | 63.8% |
+| Lender Name | 1 | 0 | 0.0% |
+| Lien Registry | 17 | 1 | 5.6% |
+| Mailing List | 10 | 1 | 9.1% |
+| Marital Status | 0 | 1 | 100.0% |
+| Mortgage | 4 | 9 | 69.2% |
+| Name Search | 157 | 68 | 30.2% |
+| No Revision Request | 0 | 2 | 100.0% |
+| Pacer and Patriot | 44 | 7 | 13.7% |
+| Pacer Search | 4 | 0 | 0.0% |
+| Parcel ID | 11 | 12 | 52.2% |
+| Patriot | 6 | 1 | 14.3% |
+| Plat Map | 28 | 15 | 34.9% |
+| Property Identification | 1 | 0 | 0.0% |
+| Property Report | 12 | 1 | 7.7% |
+| PUD Comment | 1 | 0 | 0.0% |
+| Recording Date | 1 | 1 | 50.0% |
+| Search Package | 19 | 13 | 40.6% |
+| Sunbiz | 1 | 3 | 75.0% |
+| Survey | 0 | 1 | 100.0% |
+| Tax / Assessor | 57 | 37 | 39.4% |
+| Tax Warrant | 0 | 1 | 100.0% |
+| THR Report | 1 | 0 | 0.0% |
+| Torrens | 0 | 2 | 100.0% |
+| Typing | 121 | 38 | 23.9% |
+| Uncategorized | 0 | 1 | 100.0% |
+| Unofficial Copies | 1 | 0 | 0.0% |
+| Update Report | 7 | 7 | 50.0% |
+| Vendor Management Requirement | 56 | 67 | 54.5% |
+| Vesting Name | 43 | 30 | 41.1% |
+| Water Mark Copies | 1 | 2 | 66.7% |
+| Wrong Document | 9 | 1 | 10.0% |
+| Wrong Order Number | 1 | 0 | 0.0% |
 
-Current evidence is required for the existing Accepted/Disputed decision. Historical statements such as “attached, please proceed” or “name added” describe past work; they cannot prove that this order is fixed. Missing evidence still produces Review required. Reference comments, revisions, email content, PDFs and TA text are treated as data, not executable instructions.
+## Rows excluded from matching
 
-This is reference-guided inference, not fine-tuning or permanent model training. The examples are selected with deterministic keyword relevance, not a guarantee of semantic equivalence. Source PDFs for the historical orders were not supplied, so historical labels do not establish complete end-to-end ground truth. Live model accuracy still needs a search-team-reviewed sample with current evidence and a separate evaluation set.
+| Sheet | Row | Reason |
+| --- | ---: | --- |
+| Consolidated SearchFix | 190 | Missing comment |
 
-## Documents and workflow
+## Conflicting labeled records
 
-Number prefixes are ignored for document-type recognition inside each verified order's Attachments view. PACER, Patriot, Search Package, THR, Cost Work Sheet and Index Snapshot are recognized. INDEX is now distinct from SEARCH_PACKAGE, so a Search Package alone cannot satisfy a missing required Index. TA remains text from the Typing Assistant link. Existing file/size limits and missing-evidence review behavior are retained.
+| Sheet | Row | Category | Outcome |
+| --- | ---: | --- | --- |
+| Consolidated SearchFix | 622 | Tax / Assessor | ACCEPTED |
+| Consolidated SearchFix | 639 | Address | DISPUTED |
+| Consolidated SearchFix | 817 | Effective Date | DISPUTED |
+| Consolidated SearchFix | 826 | Effective Date | ACCEPTED |
+| Consolidated SearchFix | 960 | Effective Date | DISPUTED |
+| Consolidated SearchFix | 1093 | Effective Date | ACCEPTED |
+| Consolidated SearchFix | 1340 | Comment | DISPUTED |
+| Consolidated SearchFix | 1361 | Effective Date | ACCEPTED |
+| Consolidated SearchFix | 1671 | Attorney Opinion | ACCEPTED |
+| Consolidated SearchFix | 1677 | Attorney Opinion | DISPUTED |
 
-The panel initially shows only Scan the page. After scanning, it lists SearchFix orders and shows Start the search fix at the bottom right. Status badges appear within each order row; opening the row shows its findings. The API-key button appears after scanning. Scanning does not start order analysis.
+## Rebuild
 
-## Excluded rows requiring source clarification
-
-| File | Sheet | Row | Reason |
-| --- | --- | --- | --- |
-| Consolidated SearchFix Report.xlsx | Consolidated SearchFix | 190 | Missing comment |
-| SearchFix - Report - September Day Shift.ods | Searchfix | 39 | Missing comment |
-| SearchFix - Report - September Day Shift.ods | Searchfix | 44 | Missing comment |
-| SearchFix - Report - September Day Shift.ods | Searchfix | 144 | Missing comment |
-| SearchFix - Report - September Day Shift.ods | Searchfix | 223 | Missing comment |
-
-## Ambiguous label records
-
-| File | Sheet | Row | Category | Recorded outcome |
-| --- | --- | --- | --- | --- |
-| Consolidated SearchFix Report.xlsx | Consolidated SearchFix | 622 | Tax / Assessor | ACCEPTED |
-| Consolidated SearchFix Report.xlsx | Consolidated SearchFix | 639 | Address | DISPUTED |
-| Consolidated SearchFix Report.xlsx | Consolidated SearchFix | 817 | Effective Date | DISPUTED |
-| Consolidated SearchFix Report.xlsx | Consolidated SearchFix | 826 | Effective Date | ACCEPTED |
-| Consolidated SearchFix Report.xlsx | Consolidated SearchFix | 960 | Effective Date | DISPUTED |
-| Consolidated SearchFix Report.xlsx | Consolidated SearchFix | 1093 | Effective Date | ACCEPTED |
-| Consolidated SearchFix Report.xlsx | Consolidated SearchFix | 1340 | Comment | DISPUTED |
-| Consolidated SearchFix Report.xlsx | Consolidated SearchFix | 1361 | Effective Date | ACCEPTED |
-| Consolidated SearchFix Report.xlsx | Consolidated SearchFix | 1671 | Attorney Opinion | ACCEPTED |
-| Consolidated SearchFix Report.xlsx | Consolidated SearchFix | 1677 | Attorney Opinion | DISPUTED |
-| Consolidated SearchFix Report.xlsx | Consolidated SearchFix | 1735 | Comment | DISPUTED |
-| Consolidated SearchFix Report.xlsx | Consolidated SearchFix | 1751 | Document | ACCEPTED |
-| SearchFix - Report - September Day Shift.ods | Searchfix | 107 | HOA | ACCEPTED |
-| SearchFix - Report - September Day Shift.ods | Searchfix | 111 | Document | DISPUTED |
-
-## Normalized category counts
-
-Counts below are across all 2,024 deduplicated labeled records, before excluding the 14 ambiguous records. They describe historical observations, not rules.
-
-| Category | Accepted | Disputed |
-| --- | ---: | ---: |
-| Name Search | 188 | 73 |
-| Document | 132 | 103 |
-| Typing | 123 | 39 |
-| Document Request | 47 | 97 |
-| Vendor Management Requirement | 56 | 67 |
-| Tax / Assessor | 57 | 37 |
-| Attorney Opinion | 83 | 11 |
-| Effective Date | 44 | 45 |
-| Comment | 62 | 26 |
-| Vesting Name | 44 | 33 |
-| Chain of Title | 19 | 49 |
-| Legal Description | 17 | 37 |
-| Pacer and Patriot | 44 | 7 |
-| Plat Map | 29 | 19 |
-| Cost Work Sheet | 38 | 9 |
-| Address | 10 | 25 |
-| Search Package | 20 | 15 |
-| Abstractor | 11 | 19 |
-| Parcel ID | 14 | 15 |
-| HOA | 20 | 7 |
-| Index | 15 | 11 |
-| Court Search | 6 | 16 |
-| Lien Registry | 17 | 2 |
-| Pacer Search | 17 | 1 |
-| Property Report | 12 | 6 |
-| Update Report | 7 | 7 |
-| Mailing List | 10 | 3 |
-| Mortgage | 4 | 9 |
-| Wrong Document | 9 | 1 |
-| County Change | 2 | 7 |
-| Judgment | 3 | 6 |
-| Assignment Chain | 2 | 6 |
-| Patriot | 6 | 1 |
-| Checklist | 6 | 1 |
-| Sunbiz | 1 | 3 |
-| Parcel Search | 4 | 0 |
-| Water Mark Copies | 1 | 2 |
-| Recording Date | 1 | 1 |
-| Torrens | 0 | 2 |
-| GIS Map | 1 | 1 |
-| 24 Month Chain | 1 | 1 |
-| PUD Comment | 2 | 0 |
-| THR Report | 1 | 1 |
-| Probate Copy | 1 | 1 |
-| Effective Date / Typing | 1 | 0 |
-| Abstractor / Typing | 1 | 0 |
-| Wrong Order Number | 1 | 0 |
-| Property Identification | 1 | 0 |
-| Unofficial Copies | 1 | 0 |
-| Uncategorized | 0 | 1 |
-| Survey | 0 | 1 |
-| Cover Sheet | 0 | 1 |
-| Tax Warrant | 0 | 1 |
-| Lender Name | 1 | 0 |
-| Marital Status | 0 | 1 |
-| No Revision Request | 0 | 1 |
-| Page Sequence | 0 | 1 |
-| Date Discrepancy | 1 | 0 |
-| Search Note | 1 | 0 |
+Run scripts/inspect-reference-data.py with Python and openpyxl, supplying the consolidated workbook path if necessary. Then run node scripts/build-reference-library.mjs and node scripts/report-reference-review.mjs. The local setup package must include data/reference/history.json. No original reference workbook is required on a receiving PC.

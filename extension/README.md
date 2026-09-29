@@ -1,4 +1,4 @@
-# SearchFix extension 1.4.7
+# SearchFix extension 1.5.0
 
 Start the local backend with START-SearchFix.cmd in the full project. Load or reload this folder in chrome://extensions.
 
@@ -8,7 +8,7 @@ Start the local backend with START-SearchFix.cmd in the full project. Load or re
 4. Click **Start the search fix** at the bottom right.
 5. Follow the Pending, Processing, Accepted, Disputed, Ignored and Review required badges inside each order row. Open a row for findings, evidence and historical references.
 
-The backend consults the supplied spreadsheets and email category guidance. Historical cases assist interpretation; current evidence determines the result. TA remains text from Typing Assistant and PDFs come from Attachments. Numeric filename prefixes vary; Index Snapshot and Search Package are separate document types.
+The backend consults only the consolidated XLSX reference library. Internal authors including ADSSP2 are ignored before AI. Explicit operational fee/status-only cases finish Disputed without documents. Substantive claims need current evidence; unmatched claims need manual review. TA remains text from Typing Assistant and PDFs come from Attachments. Numeric filename prefixes vary; Index Snapshot and Search Package are separate document types.
 
 Keys stay only for the browser session. Reenter after browser restart or extension reload. Saving a key makes no API test calls; Gemini is contacted only when analysis starts; there is no environment-key fallback. Update the extension and backend together.
 

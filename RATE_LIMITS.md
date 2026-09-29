@@ -1,4 +1,4 @@
-# Gemini budget protection — SearchFix 1.4.7
+# Gemini budget protection — SearchFix 1.5.0
 
 This is backend scheduling, not model training. The fallback order stays the same.
 
@@ -40,4 +40,4 @@ The token preflight follows Google's [token-counting guidance](https://ai.google
 
 ## Apply the update
 
-Close the old service window, start `START-SearchFix.cmd`, and reload the extension. Version 1.4.7 uses the supplied limits automatically. The terminal logs `gemini.budget-skip` before switching a locally blocked model, and `gemini.chain-exhausted` if no candidate can proceed.
+Close the old service window, start `START-SearchFix.cmd`, and reload the extension. Version 1.5.0 uses the supplied limits automatically. The terminal logs `gemini.budget-skip` before switching a locally blocked model, and `gemini.chain-exhausted` if no candidate can proceed.

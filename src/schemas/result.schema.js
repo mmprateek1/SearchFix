@@ -15,6 +15,8 @@ export const Step1IssueSchema = z.object({
     category: z.enum(REFERENCE_CATEGORIES).optional(),
     issueType: z.enum(ISSUE_TYPES),
     claim: z.string(),
+    decision: z.literal('DISPUTED').optional(),
+    reason: z.string().optional(),
     requiredFiles: z.array(RequiredFileItemSchema)
 });
 
@@ -44,8 +46,8 @@ export const SearchFixStep1ResultSchema = z.object({
         }))
     }),
     issues: z.array(Step1IssueSchema),
-    status: z.enum(["AWAITING_DOCUMENTS", "IGNORED", "DISPUTED"]),
-    overallDecision: z.enum(["IGNORED", "DISPUTED"]).optional(),
+    status: z.enum(["AWAITING_DOCUMENTS", "IGNORED", "DISPUTED", "REVIEW_REQUIRED"]),
+    overallDecision: z.enum(["IGNORED", "DISPUTED", "REVIEW_REQUIRED"]).optional(),
     reason: z.string().optional()
 });
 

@@ -7,6 +7,7 @@ export const USER_CONFIG = {
     internalPatterns: [
         "_ADSSearchType",
         "ADSSearchType",
+        "ADSSP2",
         "KishoreK",
         "RaghuP",
         "AshokaA",
@@ -46,8 +47,8 @@ export function classifyUserRole(author) {
 
     const trimmed = author.trim();
 
+    if (isADSSearchType(trimmed) || isADSSP2(trimmed)) return "INTERNAL";
     if (isRVSIUser(trimmed)) return "CLIENT";
-    if (isADSSearchType(trimmed)) return "INTERNAL";
 
     for (const pattern of USER_CONFIG.systemPatterns) {
         if (trimmed.includes(pattern)) return "SYSTEM";
@@ -75,4 +76,8 @@ export function isADSSearchType(author = "") {
 
 export function isRVSIUser(author = "") {
     return /rvsi[-_\s]*outsource\b/i.test(author);
+}
+
+export function isADSSP2(author = "") {
+    return /adssp2\b/i.test(author);
 }

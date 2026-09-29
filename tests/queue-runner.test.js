@@ -77,6 +77,18 @@ test("queue ignores, reviews failed orders, and continues using only matching at
   assert.deepEqual([...f.tabsMap.keys()], [99]);
 });
 
+test('comment-only Disputed and unmatched Review Required never open supporting views or call the document endpoint', async()=>{
+  const f=fixture();
+  f.runner.api=async(endpoint,body)=>{
+    assert.equal(endpoint,'analyze-comments');
+    const status=body.orderNumber==='FEE'?'DISPUTED':'REVIEW_REQUIRED';
+    return {orderNumber:body.orderNumber,status,overallDecision:status,issues:[]};
+  };
+  const results=await f.runner.run([task('FEE'),task('UNMATCHED')]);
+  assert.deepEqual(results.map(r=>r.status),['DISPUTED','REVIEW_REQUIRED']);
+  assert.equal(f.events.filter(([name])=>['openSupportingLink','readSupportingView','readAttachment'].includes(name)).length,0);
+});
+
 test("number-prefixed evidence filenames download all mapped PDFs and TA only from its text source", async () => {
   const f = fixture();
   const oldInject = f.runner.inject;

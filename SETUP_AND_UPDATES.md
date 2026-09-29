@@ -1,6 +1,6 @@
 # Local installation and updates
 
-Use [LOCAL_TESTING.md](LOCAL_TESTING.md) for the full procedure. Current release: 1.4.7.
+Use [LOCAL_TESTING.md](LOCAL_TESTING.md) for the full procedure. Current release: 1.5.0.
 
 For another PC, extract SearchFix-local-setup.zip into a permanent folder, install Node.js, and run `npm ci` once. Start START-SearchFix.cmd and load the extracted extension folder in Chrome. Keep data/reference beside src; it contains the reference library required by the backend.
 

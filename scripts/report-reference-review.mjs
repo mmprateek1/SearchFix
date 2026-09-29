@@ -1,66 +1,53 @@
 import fs from 'node:fs';
 import path from 'node:path';
+import { ISSUE_TYPES, COMMENT_ONLY_TYPES } from '../src/config/issueTypes.js';
+import { getRequiredDocumentTypes } from '../src/config/documentMappings.js';
+import { CATEGORY_ISSUE_TYPES } from '../src/config/categoryIssues.js';
 const root=path.resolve(import.meta.dirname,'..');
 const history=JSON.parse(fs.readFileSync(path.join(root,'data/reference/history.json'),'utf8'));
 const usable=history.cases.filter(x=>!x.conflictingLabels);
-const outcomes=usable.reduce((r,c)=>(r[c.outcome]=(r[c.outcome]||0)+1,r),{});
-const mixed=Object.values(history.categoryCounts).filter(x=>x.ACCEPTED&&x.DISPUTED).length;
-const lines=[`# Review of the supplied SearchFix reference data
+const lines=[`# Consolidated workbook review
 
-Reviewed September 28, 2026. All workbook sheets were read and all 18 pages of the scanned email PDF were visually inspected. The original files were not edited. This report describes reference material, not measured model accuracy.
+Reviewed September 29, 2026. Only Consolidated SearchFix Report.xlsx supplied in the 29th September folder is used. Both populated sheets were read. The original workbook was not changed. Its SHA-256 is ${history.source.sha256}.
 
-## Source coverage and reconciliation
+## Coverage
 
-| Source | Findings |
-| --- | --- |
-| Consolidated SearchFix Report.xlsx, Consolidated SearchFix!A2:H1810 | 1,809 labeled rows: 1,076 Accepted and 733 Disputed. The Status Summary agrees (Wanted 1,076; Unwanted 733). Error Status is the outcome used by the importer. |
-| SearchFix - Report - September Day Shift.ods, Searchfix rows 2–225 | 224 labeled rows: 123 Accepted and 101 Dispute. Sheet1's totals agree. Another 187 rows contain serial numbers without orders and are excluded. |
-| Same ODS, Clarification rows 2–109 | 108 pending clarification entries with no final Accepted/Disputed label; retained separately as context, not assigned a final outcome. Five empty template rows are excluded. |
-| data.pdf, pages 3–7 | Historical category tables: night summary 712 Accepted / 493 Dispute; September snapshot 66 Accepted / 61 Not Accepted. These are different snapshots and are not added to the workbook rows. |
-| data.pdf, pages 12–16 | Repeated forwarded copies of those category tables; not counted again. Other pages contain email discussion/signatures/attachment listings. Some rightmost email text/summary columns are clipped in the supplied PDF. |
+Consolidated SearchFix!A2:H1810 contains 1,809 labeled entries: 1,076 Accepted and 733 Disputed. Status Summary agrees (Wanted 1,076; Unwanted 733). There is no date column; the rows alone do not establish their date coverage.
 
-The email describes the consolidated data as the previous three months. The consolidated detail sheet has no Date column, so its exact date coverage cannot be independently reconstructed from those rows. The September workbook provides dated rows. Old snapshots in the PDF should not be expected to equal the later workbook totals.
+One row has no comment, leaving ${history.labeledRows} usable input rows. ${history.duplicateRowsMerged} exact duplicates are merged, preserving their source row locations. ${history.uniqueCases} distinct records remain; ${history.conflictingCases} have conflicting outcomes for the same order/comment and are excluded from retrieval. ${usable.length} records are eligible as examples. Spelling/case variants are normalized without changing source labels or recorded outcomes.
 
-## Data preparation
+## Decisions and limitations
 
-- 2,033 labeled input rows across the two detail sheets.
-- ${history.skipped.length} rows have no usable Search fix comments and are excluded from similarity matching.
-- ${history.labeledRows} comment-bearing labeled rows remain.
-- ${history.duplicateRowsMerged} exact duplicate records are merged while retaining all source locations.
-- ${history.uniqueCases} distinct reference records remain, covering ${new Set(history.cases.map(x=>x.order)).size} different order identifiers. Multiple records can belong to the same order.
-- ${history.conflictingCases} records share an order/comment with different outcomes. They may represent different issues or revisions; the supplied data does not settle that ambiguity. They are retained for audit but excluded from automatic examples.
-- ${usable.length} unambiguous reference records are eligible for retrieval: ${outcomes.ACCEPTED} Accepted and ${outcomes.DISPUTED} Disputed.
-- Spelling/case variants are grouped into ${Object.keys(history.categoryCounts).length} business categories, preserving the original category on each record.
-- ${mixed} normalized categories contain both outcomes. Category alone cannot establish a decision.
+Abstractor has 19 Disputed and 11 Accepted entries (63.3% Disputed). Accepted examples include wrong book/page references and attorney-opinion errors. Therefore an Abstractor category alone cannot justify skipping evidence. No separate Fee Approval category exists in this workbook; the fee-only rule comes from the user's requested workflow, not a measured fee-approval success rate.
 
-## What the PDF establishes
+The comment model receives the category catalogue, eligible category counts, and up to six relevant historical examples. The decision model receives those references alongside current evidence. These are reference-guided prompts, not fine-tuning. Historical response text never proves a current order was corrected. Counts describe the sample; they are not confidence scores or guaranteed future probabilities.
 
-The PDF is a category/outcome summary, not a written rule saying each category must always have one status. Name Search Missed appears with 102 Accepted and 51 Dispute; Typing Requirement with 87 and 17; Missed Document with 70 and 48; Document Request with 31 and 65. The reference guidance records this distinction, the visible category vocabulary, both snapshot totals, page locations, and the duplicated-table caveat.
+Internal authors, including ADSSearchType and ADSSP2, are ignored before any AI call. Explicit fee-only approvals, abstractor status/ETA-only updates and explicit no-revision requests can finish Disputed without downloading documents. Mixed comments still send substantive claims for evidence checks. Unmatched or ambiguous claims finish Review required with an explanation and no arbitrary document request. Missing, unreadable or inconclusive required evidence also needs review.
 
-## How the extension uses the data
+## Category outcomes
 
-Every valid comment route consults the local reference library and email guidance. Existing ignore/internal rules retain their precedence. For comments requiring analysis, the backend searches the combined eligible examples and sends up to six relevant cases to the comment and decision models, including source file, sheet, row, category, outcome, and historical response. Relevant examples from both workbooks and both outcomes are included where available. Up to two related pending clarification entries can be included, clearly marked as lacking a final outcome.
+Raw counts below include all 1,809 labeled rows, before removing the blank comment, duplicates or conflicting records. Model prompts use the eligible counts instead. Even a 100% fraction from one or two examples is not a reliable general decision rule.
 
-The result includes a business category alongside the existing issue type, and a References consulted section with retrieved row locations. If nothing sufficiently related is found, it says so; the model still receives the category catalogue and PDF guidance. Historical source counts are never treated as votes or confidence scores.
-
-Current evidence is required for the existing Accepted/Disputed decision. Historical statements such as “attached, please proceed” or “name added” describe past work; they cannot prove that this order is fixed. Missing evidence still produces Review required. Reference comments, revisions, email content, PDFs and TA text are treated as data, not executable instructions.
-
-This is reference-guided inference, not fine-tuning or permanent model training. The examples are selected with deterministic keyword relevance, not a guarantee of semantic equivalence. Source PDFs for the historical orders were not supplied, so historical labels do not establish complete end-to-end ground truth. Live model accuracy still needs a search-team-reviewed sample with current evidence and a separate evaluation set.
-
-## Documents and workflow
-
-Number prefixes are ignored for document-type recognition inside each verified order's Attachments view. PACER, Patriot, Search Package, THR, Cost Work Sheet and Index Snapshot are recognized. INDEX is now distinct from SEARCH_PACKAGE, so a Search Package alone cannot satisfy a missing required Index. TA remains text from the Typing Assistant link. Existing file/size limits and missing-evidence review behavior are retained.
-
-The panel initially shows only Scan the page. After scanning, it lists SearchFix orders and shows Start the search fix at the bottom right. Status badges appear within each order row; opening the row shows its findings. The API-key button appears after scanning. Scanning does not start order analysis.
-
-## Excluded rows requiring source clarification
-
-| File | Sheet | Row | Reason |
-| --- | --- | --- | --- |`];
-for(const row of history.skipped)lines.push(`| ${row.file} | ${row.sheet} | ${row.row} | ${row.reason} |`);
-lines.push('\n## Ambiguous label records\n\n| File | Sheet | Row | Category | Recorded outcome |\n| --- | --- | --- | --- | --- |');
-for(const r of history.cases.filter(x=>x.conflictingLabels))for(const s of r.sources)lines.push(`| ${s.file} | ${s.sheet} | ${s.row} | ${r.category} | ${r.outcome} |`);
-lines.push('\n## Normalized category counts\n\nCounts below are across all 2,024 deduplicated labeled records, before excluding the 14 ambiguous records. They describe historical observations, not rules.\n\n| Category | Accepted | Disputed |\n| --- | ---: | ---: |');
-for(const [category,counts] of Object.entries(history.categoryCounts).sort((a,b)=>(b[1].ACCEPTED+b[1].DISPUTED)-(a[1].ACCEPTED+a[1].DISPUTED)))lines.push(`| ${category} | ${counts.ACCEPTED} | ${counts.DISPUTED} |`);
+| Category | Accepted | Disputed | Historical Disputed share |
+| --- | ---: | ---: | ---: |`];
+for(const [category,c] of Object.entries(history.rawCategoryCounts).sort((a,b)=>a[0].localeCompare(b[0]))) lines.push(`| ${category} | ${c.ACCEPTED} | ${c.DISPUTED} | ${(100*c.DISPUTED/(c.ACCEPTED+c.DISPUTED)).toFixed(1)}% |`);
+lines.push('\n## Rows excluded from matching\n\n| Sheet | Row | Reason |\n| --- | ---: | --- |');
+for(const row of history.skipped) lines.push(`| ${row.sheet} | ${row.row} | ${row.reason} |`);
+lines.push('\n## Conflicting labeled records\n\n| Sheet | Row | Category | Outcome |\n| --- | ---: | --- | --- |');
+for(const r of history.cases.filter(x=>x.conflictingLabels)) for(const s of r.sources) lines.push(`| ${s.sheet} | ${s.row} | ${r.category} | ${r.outcome} |`);
+lines.push('\n## Rebuild\n\nRun scripts/inspect-reference-data.py with Python and openpyxl, supplying the consolidated workbook path if necessary. Then run node scripts/build-reference-library.mjs and node scripts/report-reference-review.mjs. The local setup package must include data/reference/history.json. No original reference workbook is required on a receiving PC.');
 fs.writeFileSync(path.join(root,'REFERENCE_DATA_REVIEW.md'),lines.join('\n')+'\n');
-console.log('Reference review written.');
+const mapping=[`# Issue and document catalogue
+
+${ISSUE_TYPES.length} explicit issue types cover the workbook's named categories and additional concrete existing claims. Category labels guide classification; the actual claim determines the issue. Broad Abstractor comments can involve any substantive issue, not only attorney opinions.
+
+TA/TYPED_REPORT means text read from the website Typing Assistant. Other types refer to PDF attachments matched by filename regardless of the order-number prefix or row position. A missing required type results in Review required; a historical example does not substitute for it. Non-PDF source attachments are not silently treated as PDFs. These are implementation mappings for team review, not mappings authored by the spreadsheet itself.
+
+| Workbook category | Candidate issue types |
+| --- | --- |`];
+for(const [category,types] of Object.entries(CATEGORY_ISSUE_TYPES)) mapping.push(`| ${category} | ${types.join(', ')} |`);
+mapping.push('\n## Evidence requirements\n\n| Issue type | Required evidence |\n| --- | --- |');
+for(const type of ISSUE_TYPES) mapping.push(`| ${type} | ${COMMENT_ONLY_TYPES.includes(type)?'No documents; guarded comment-only decision':getRequiredDocumentTypes(type).join(', ')} |`);
+mapping.push('\nUnknown issue types have no default document mapping and return Review required. Category-specific supporting evidence can supplement these requirements (for example assessor data for Tax / Assessor).');
+fs.writeFileSync(path.join(root,'ISSUE_DOCUMENT_MAP.md'),mapping.join('\n')+'\n');
+console.log(`Reference review and ${ISSUE_TYPES.length}-issue catalogue written.`);

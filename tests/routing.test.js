@@ -41,15 +41,14 @@ test("newer client complaints survive older internal history; system events stil
   assert.equal(classifyUserRole("rvsi_outsource: User"), "CLIENT");
 });
 
-test("RVSI fee and partner ETA dispositions end both endpoint flows", async () => {
+test("RVSI fee and abstractor ETA requests finish Disputed without evidence", async () => {
   const original = geminiService.generateJSON;
   const examples = [
     'Outbound: "101-10925203: Full Title, Morgan, OH: Good Afternoon, The subject property consists of 2 parcels that have separate back chains. Can you please provide your fee approval for the additional parcel / chain to proceed with this order? The total fee is $351.00 ($175.50 x 2 = $351.00). Thank you."',
     "PER PARTNER: We have submitted a rush request with the abstractor, and we have requested the current status and ETA from the abstractor and are awaiting their response. We will get back to you with more information once we receive it."
   ];
   geminiService.generateJSON = async (system, prompt) => {
-    assert.match(system, /solely a fee\/quote approval/);
-    assert.match(system, /concrete title\/search\/reporting problem/);
+    assert.match(system, /FEE_APPROVAL_REQUEST/);
     assert.ok(examples.some(text => prompt.includes(text)));
     return { disposition: "IGNORED", ignoreReason: "Operational fee or ETA update only.", issues: [] };
   };
@@ -58,7 +57,7 @@ test("RVSI fee and partner ETA dispositions end both endpoint flows", async () =
       const order = { orderNumber: "TEST", comments: [comment(index ? "RVSI_outsource: melodyl" : "RVSI-Outsource: caran", text)] };
       for (const controller of [analyzeCommentsController, analyzeDocumentsController]) {
         const res = response(); await controller({ body: order, files: [] }, res);
-        assert.equal(res.body.status, "IGNORED"); assert.equal(res.statusCode, 200);
+        assert.equal(res.body.status, "DISPUTED"); assert.equal(res.statusCode, 200);
       }
     }
   } finally { geminiService.generateJSON = original; }
@@ -70,7 +69,7 @@ test("mixed complaints and non-RVSI authors cannot disappear via an ignored disp
     for (const [author, issues] of [["Client", []], ["RVSI-Outsource: client", [{ issueType: "MISSING_DEED", claim: "Deed missing despite ETA update" }]]]) {
       geminiService.generateJSON = async () => ({ disposition: "IGNORED", ignoreReason: "ETA", issues });
       const res = response(); await analyzeCommentsController({ body: { orderNumber: "TEST", comments: [comment(author, "ETA pending; deed missing")] } }, res);
-      assert.equal(res.body.status, "AWAITING_DOCUMENTS"); assert.ok(res.body.issues.length);
+      assert.equal(res.body.status, issues.length ? "AWAITING_DOCUMENTS" : "REVIEW_REQUIRED"); assert.equal(Boolean(res.body.issues.length), Boolean(issues.length));
     }
   } finally { geminiService.generateJSON = original; }
 });

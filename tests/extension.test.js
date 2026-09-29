@@ -27,7 +27,7 @@ test("missing authors or timestamps cannot lead to silently misordered comments"
   assert.throws(() => validateOrder({...order, comments:[{...order.comments[0],date:"09/24/26"}]}));
 });
 test("assistant notes distinguish internal routing and unverified requests from evidence", () => {
-  assert.match(buildAssistantText({orderNumber:"TEST",issues:[],commentAnalysis:{selectedComment:{role:"INTERNAL",text:"ETA pending"}}}), /not document verification/);
+  assert.match(buildAssistantText({orderNumber:"TEST",status:"IGNORED",issues:[],commentAnalysis:{selectedComment:{role:"INTERNAL",text:"ETA pending"}}}), /No supporting documents were analyzed/);
   assert.match(buildAssistantText({orderNumber:"TEST",status:"AWAITING_DOCUMENTS",issues:[]}), /not yet been verified/);
   assert.match(buildAssistantText({orderNumber:"TEST",issues:[{clientClaim:"Check deed",evidence:[{document:"Deed.pdf",page:3,finding:"Name differs",quotedText:"Jane Doe"}]}]}), /Deed.pdf, page 3/);
 });

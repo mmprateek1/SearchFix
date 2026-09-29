@@ -11,7 +11,7 @@ test('PDF stream reaches multipart upload and the document model with TA and the
   let documentCalls=0;
   geminiService.generateJSON=async(_system,_user,stage)=>stage==='documents'
     ? {decision:'ACCEPTED',reason:'Synthetic evidence supports the claim.'}
-    : {issues:[{issueType:'OTHER',category:'Document Request',claim:'Check Search Package against TA.'}]};
+    : {issues:[{issueType:'FEE_APPROVAL_REQUEST',category:'Fee Approval',claim:'Please approve the additional fee.'}, {issueType:'SEARCH_PACKAGE_DISCREPANCY',category:'Search Package',claim:'Search Package has the wrong name; compare with TA.'}]};
   geminiService.generateContentWithFiles=async(_system,_user,parts)=>{
     documentCalls++;
     const pdfPart=parts.find(part=>part.inlineData)?.inlineData;
@@ -32,11 +32,13 @@ test('PDF stream reaches multipart upload and the document model with TA and the
   const reader=vm.runInNewContext(`(${readAttachment.toString()})`,{URL,URLSearchParams,location:new URL(pageUrl),fetch,AbortSignal,TextDecoder,Uint8Array,btoa});
   const headers={'X-SearchFix-Gemini-Key':'TEST_PDF_PIPELINE_KEY_12345678901234567890'};
   try {
-    const order={orderNumber:'SYNTHETIC',comments:[{author:'Client',date:'2026-09-28',time:'10:00:00',text:'Check the search package and TA.'}]};
+    const order={orderNumber:'SYNTHETIC',comments:[{author:'Client',date:'2026-09-28',time:'10:00:00',text:'Please approve the additional fee. Search Package has the wrong name; compare with TA.'}]};
     const commentResponse=await fetch(origin+'/api/searchfix/analyze-comments',{method:'POST',headers:{...headers,'Content-Type':'application/json'},body:JSON.stringify(order)});
     assert.equal(commentResponse.status,200);
     const commentResult=await commentResponse.json();
     assert.equal(commentResult.status,'AWAITING_DOCUMENTS');
+    assert.equal(commentResult.issues[0].decision,'DISPUTED');
+    assert.deepEqual(commentResult.issues[0].requiredFiles,[]);
     const downloaded=await reader(origin+`/AttachmentViewer.aspx?PublicAttachmentId=${fileId}`,pageUrl);
     assert.equal(downloaded.size,pdf.length);
     const form=new FormData();
@@ -47,7 +49,9 @@ test('PDF stream reaches multipart upload and the document model with TA and the
     assert.equal(response.status,200);
     const result=await response.json();
     assert.equal(result.overallDecision,'ACCEPTED');
-    assert.equal(result.issues[0].evidence[0].document,'999_Search Package.pdf');
+    assert.equal(result.issues[0].decision,'DISPUTED');
+    assert.deepEqual(result.issues[0].evidence,[]);
+    assert.equal(result.issues[1].evidence[0].document,'999_Search Package.pdf');
     assert.equal(documentCalls,1);
   } finally {await new Promise(resolve=>server.close(resolve));geminiService.generateJSON=originalJSON;geminiService.generateContentWithFiles=originalFiles;}
 });
